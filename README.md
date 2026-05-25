@@ -94,17 +94,16 @@ All Firestore schema definitions are centralized in the JSON model below:
 
 #### Poll Logic Summary
 
-- **Two polls per day:**
-  - Evening poll: 19:00 → 09:00 (overnight)
-  - Morning poll: 09:00 → 19:00
-- **UI:** Single poll screen with horizontal swipe (PageView) — left/right to show Morning / Evening poll
-- **Morning poll:** "user-defined" checkpoints — stores only responses; student location is read from `students/{id}.location`
-- **Evening poll:** "pre-defined" checkpoints — stores responses plus a driver/global list of string checkpoints that students can select
-- **Refresh:** On each refresh boundary (09:00 and 19:00) a Cloud Function or scheduled job creates the next poll and applies each student's defaults (`defaultMorning` / `defaultEvening`) into the new poll responses
+- Two polls per day: Evening poll = 19:00 → 09:00 (overnight), Morning - poll = 09:00 → 19:00.
+- UI: single poll screen with horizontal swipe (PageView) — left/right to show Morning / Evening poll.
+- Morning poll: "user-defined" checkpoints — stores only responses; student location is read from students/{id}.location.
+- Evening poll: "pre-defined" checkpoints — stores responses plus a driver/global list of string checkpoints that students can select.
+- Refresh only occurs at 19:00, when today ride has ended completely. Both the morning and evening
+will get default values at this point.
 
 #### Screens
 
-- **Driver screen:** View poll details and manage poll reset schedule
+- **Driver screen:** View poll details.
 - **Student screen:** View poll and answer yes/no, update location, set proximity area
 
 ### 4. Integrate Mapbox and Location
@@ -128,7 +127,7 @@ All Firestore schema definitions are centralized in the JSON model below:
 - Use Firestore as the shared state source, with students feeding geofence data and the driver consuming it
 - Schedule poll refresh with a time-based mechanism (7pm daily) rather than requiring manual reset
 
-## Implementation Plan: Subtasks
+## Implementation Plan: Poll
 
 This section breaks the design into smaller, actionable development tasks. Each task maps to files and a short acceptance criterion.
 
@@ -159,7 +158,7 @@ This section breaks the design into smaller, actionable development tasks. Each 
 
 #### Scheduler Cloud Function
 - **File:** `functions/src/scheduler.ts`
-- **Task:** Scheduled at 09:00 and 19:00 UTC (or configured timezone); creates new poll docs, applies `defaultMorning/defaultEvening` into `responses`, populates `checkpoints` for evening polls
+- **Task:** Scheduled at 19:00 (or configured timezone); reset current doc values to default, applies `defaultMorning/defaultEvening` into `responses`, populates `checkpoints` for evening polls
 - **Acceptance:** Idempotent runs that create polls and seed responses
 
 #### Arrival Notification Function
