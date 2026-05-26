@@ -15,13 +15,13 @@ class FirebaseSignupService {
   /// Signs up a user using a username + secret code.
   ///
   /// This scaffold maps `username` to a synthetic email of the form
-  /// `<username>@pickkaru.app` in order to reuse Firebase Email/Password auth.
+  /// `<username>@gmail.com` in order to reuse Firebase Email/Password auth.
   Future<String> signUpWithUsername({
     required String username,
     required String secret,
     required roles role,
   }) async {
-    final email = '${username.toLowerCase()}@pickkaru.app';
+    final email = '${username.toLowerCase()}@gmail.com';
 
     // Create auth user, if it exists, this will throw an error which we can catch and show to the user
     final cred = await _auth.createUserWithEmailAndPassword(
