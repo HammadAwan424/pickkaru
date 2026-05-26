@@ -3,6 +3,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 
+enum roles {
+  student,
+  driver,
+}
+
 class FirebaseSignupService {
   final _auth = FirebaseAuth.instance;
   final _db = FirebaseFirestore.instance;
@@ -11,47 +16,82 @@ class FirebaseSignupService {
   ///
   /// This scaffold maps `username` to a synthetic email of the form
   /// `<username>@pickkaru.app` in order to reuse Firebase Email/Password auth.
-  Future<void> signUpWithUsername({
+  Future<String> signUpWithUsername({
     required String username,
     required String secret,
-    required String role,
-    String? assignedDriverId,
+    required roles role,
   }) async {
     final email = '${username.toLowerCase()}@pickkaru.app';
 
-    // Create auth user
-    final cred = await _auth.createUserWithEmailAndPassword(email: email, password: secret);
+    // Create auth user, if it exists, this will throw an error which we can catch and show to the user
+    final cred = await _auth.createUserWithEmailAndPassword(
+        email: email, password: secret);
     final uid = cred.user?.uid;
     if (uid == null) throw Exception('Failed to create user');
 
+    // code proceeds to this line only if there is no user with current uid
     // Create a Firestore profile document at `users/{uid}` following the app model
     await _db.collection('users').doc(uid).set({
-      'role': role,
+      'role': role == roles.student ? roles.student.name : roles.driver.name,
       'displayName': username,
       'username': username,
-      'assignedDriverId': assignedDriverId,
+      'assignedDriverId': null,
+    });
+
+    return uid;
+  }
+
+  Future<String?> _resolveDriverDocId(String driverId) async {
+    final doc = await _db.collection('users').doc(driverId).get();
+    if (doc.exists && doc.data()?['role'] == roles.driver.name) {
+      return doc.id;
+    }
+
+    final query = await _db
+        .collection('users')
+        .where('username', isEqualTo: driverId)
+        .where('role', isEqualTo: 'driver')
+        .limit(1)
+        .get();
+
+    if (query.docs.isNotEmpty) {
+      return query.docs.first.id;
+    }
+
+    return null;
+  }
+
+  Future<bool> driverExists(String driverId) async {
+    return await _resolveDriverDocId(driverId) != null;
+  }
+
+  Future<void> assignDriverToStudent({
+    required String studentUid,
+    required String driverId,
+  }) async {
+    final driverDocId = await _resolveDriverDocId(driverId);
+    if (driverDocId == null) {
+      throw Exception('Driver does not exist');
+    }
+
+    await _db.collection('users').doc(studentUid).update({
+      'assignedDriverId': driverDocId,
     });
   }
 
-  /// Sign in using Google. For web, uses `signInWithPopup`; for mobile, uses `google_sign_in`.
-  Future<void> signInWithGoogle() async {
+  Future<void> signInWithEmailPassword({
+    required String email,
+    required String password,
+  }) async {
+    await _auth.signInWithEmailAndPassword(email: email, password: password);
+  }
+
+  // since this handles both sign-in and sign-up,
+  // we only create a user document if one doesn't already exist for the signed-in Google user
+  Future<void> signInWithGoogle([roles? role]) async {
     if (kIsWeb) {
-      final provider = GoogleAuthProvider();
-      provider.addScope('email');
-      final userCred = await _auth.signInWithPopup(provider);
-      final uid = userCred.user?.uid;
-      if (uid != null) {
-        final doc = await _db.collection('users').doc(uid).get();
-        if (!doc.exists) {
-          await _db.collection('users').doc(uid).set({
-            'role': 'student',
-            'displayName': userCred.user?.displayName ?? '',
-            'username': userCred.user?.email?.split('@').first ?? uid,
-            'assignedDriverId': null,
-          });
-        }
-      }
-      return;
+      throw Exception(
+          'Google sign-in is not supported on web in this scaffold');
     }
 
     final googleUser = await GoogleSignIn().signIn();
@@ -63,11 +103,14 @@ class FirebaseSignupService {
     );
     final userCred = await _auth.signInWithCredential(credential);
     final uid = userCred.user?.uid;
+    final roleStr = role == null
+        ? 'student'
+        : (role == roles.student ? 'student' : 'driver');
     if (uid != null) {
       final doc = await _db.collection('users').doc(uid).get();
       if (!doc.exists) {
         await _db.collection('users').doc(uid).set({
-          'role': 'student',
+          'role': roleStr,
           'displayName': userCred.user?.displayName ?? '',
           'username': userCred.user?.email?.split('@').first ?? uid,
           'assignedDriverId': null,
