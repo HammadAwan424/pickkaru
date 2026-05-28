@@ -1,0 +1,4 @@
+enum roles {
+  student,
+  driver,
+}

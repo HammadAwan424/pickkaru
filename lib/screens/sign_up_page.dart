@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../screens/student_driver_assignment_page.dart';
 import '../services/firebase_signup_service.dart';
+import '../models/enums.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});

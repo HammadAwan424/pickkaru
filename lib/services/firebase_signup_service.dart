@@ -2,11 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
+import '../models/enums.dart';
 
-enum roles {
-  student,
-  driver,
-}
+
 
 class FirebaseSignupService {
   final _auth = FirebaseAuth.instance;
@@ -35,7 +33,6 @@ class FirebaseSignupService {
       'role': role == roles.student ? roles.student.name : roles.driver.name,
       'displayName': username,
       'username': username,
-      'assignedDriverId': null,
     });
 
     return uid;
@@ -74,7 +71,7 @@ class FirebaseSignupService {
       throw Exception('Driver does not exist');
     }
 
-    await _db.collection('users').doc(studentUid).update({
+    await _db.collection('students').doc(studentUid).update({
       'assignedDriverId': driverDocId,
     });
   }
@@ -113,7 +110,6 @@ class FirebaseSignupService {
           'role': roleStr,
           'displayName': userCred.user?.displayName ?? '',
           'username': userCred.user?.email?.split('@').first ?? uid,
-          'assignedDriverId': null,
         });
       }
     }
