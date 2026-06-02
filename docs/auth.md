@@ -80,6 +80,10 @@ students/{userId}
 ```
 
 5. Redirect to `authenticated_homepage` regardless of role.
+6. It checks the `role` and redirects to either `student_gateway` or `driver_shell`.
+(*_shell files are basically views that don't unmount. Have their own app bars etcetera.)
+7. `student_gateway` then redirects either to `student_driver_assignment` or `student_shell`
+based on whether driver is assigned already or not - `assignedDriverId`.
 
 ### Login
 
@@ -122,14 +126,16 @@ authenticated_homepage
   │
   └─ role == "student"
         │
-        ├─ assignedDriverId != null  ->  render poll_widget
+        ├─ assignedDriverId != null  ->  render student_shell
         └─ assignedDriverId == null  ->  /student_driver_assignment
 ```
 
 Reads on load:
 - `users/{userId}`
-- `students/{userId}` (only if role is student)
-- `drivers/{userId}` (only if role is driver)
+
+Children read:
+- `students/{userId}` (only if role is student by `student_gateway` child)
+- `drivers/{userId}` (only if role is driver by `driver_shell` child)
 
 Both reads should be cached in a provider after first resolution. Do not re-fetch on
 every navigation — `authenticated_homepage` may be hit on hot restart, tab switches,
@@ -165,4 +171,4 @@ drivers/{driverId}/polls/evening
       boarded: false, 
       updatedAt: now 
 ```
-4. On success, redirect to `authenticated_homepage` whose job is to then route to `poll_widget`.
+4. On success, redirect to `authenticated_homepage` whose job is to then route to the right page.
