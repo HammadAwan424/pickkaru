@@ -64,9 +64,9 @@ users/{userId}
   role, displayName, username
 drivers/{userId}
   assignedStudents: [], refreshTime: "19:00"
-polls/morning
+drivers/{userId}/polls/morning
   period: "morning", checkpoints: null
-polls/evening 
+drivers/{userId}/polls/evening 
   period: "evening", checkpoints: []
 ```
 
@@ -92,7 +92,8 @@ students/{userId}
 
 1. This handles both singup and login on a single button click.
 2. Since its a single function for both singup and login, we therefore identify 
-the type of operation before writing to firestore through: `result.additionalUserInfo?.isNewUser` 
+the type of operation before writing to firestore by checking whether a 
+`users/{userId}` doc already exists or not.
 ---
 
 ## Edge Cases
