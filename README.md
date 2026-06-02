@@ -46,18 +46,54 @@ to the student.
 These are unresolved decisions that affect multiple features. Resolve before implementing
 the relevant feature.
 
-- **Firebase Auth strategy:** username+password requires a synthetic email convention
-  (`username@pickkaru.internal`) or a Custom Auth token via Cloud Function. Decision
-  affects signup complexity and password reset flow.
-
-- **Poll refresh boundary condition:** at exactly 19:00, a student mid-answer loses
-  their draft. Is that acceptable or does the refresh wait for an active session to end?
-
 - **Driver reassignment:** the current design allows a student to assign a driver once.
   Re-assignment is explicitly out of scope but needs a decision before Firestore rules
   are finalized, since rules will need to either block or allow overwrites on
   `assignedDriverId`.
 
 - **iOS geofence fallback:** Android geofencing is the primary trigger. iOS has stricter
-  background location limits. The fallback (server-side polling) is mentioned but not
-  designed. Needs resolution before notifications work cross-platform.
+  background location limits. Needs resolution before notifications work cross-platform.
+
+## Firestore Schema
+```
+[auth.md]
+users/{userId}
+  role: "driver" | "student"
+  displayName: string, 
+  username: string,
+
+drivers/{userId}
+  assignedStudents: <string>[], [auth.md]
+  refreshTime: string [auth.md] [TODO: update through profile]
+
+students/{userId}
+  assignedDriverId: string [auth.md]
+  defaultMorning: boolean, [polls.md]
+  defaultEvening: boolean, [polls.md]
+  defaultCheckpoint: string, [polls.md]
+  "location": [polls.md]
+    "lat": number,
+    "lng": number
+  "displayAddress": "string", [polls.md]
+
+[polls.md]
+drivers/{driverId}/polls/morning
+  period: "morning", 
+  checkpoints: null, 
+  responses: 
+    {studentId}: 
+      answer: boolean, 
+      boarded: false, 
+      updatedAt: timestamp 
+
+[polls.md]
+drivers/{driverId}/polls/evening 
+  period: "evening", 
+  checkpoints: <string>[], 
+  responses:
+    {studentId}:
+      answer: boolean, 
+      checkpoint: string, 
+      boarded: false, 
+      updatedAt: timestamp 
+```
