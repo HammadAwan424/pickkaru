@@ -17,7 +17,7 @@ class _StudentShellState extends State<StudentShell> {
   ];
 
   @override
-  Widget build(BuildContext context) {
+Widget build(BuildContext context) {
     return Scaffold(
       body: _pages[_currentIndex],
       bottomNavigationBar: NavigationBar(
