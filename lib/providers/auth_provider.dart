@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../models/user.dart';
-import '../services/auth_service.dart';
-import '../services/user_service.dart';
+import 'package:pickkaru/models/user.dart';
+import 'package:pickkaru/services/auth_service.dart';
+import 'package:pickkaru/services/user_service.dart';
 
 final authServiceProvider = Provider((ref) => AuthService());
 final userServiceProvider = Provider((ref) => UserService());

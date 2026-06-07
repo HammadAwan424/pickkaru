@@ -25,6 +25,10 @@ users/{userId}
 drivers/{userId}
   assignedStudents: <string>[], 
   refreshTime: string // "HH:mm" format, default "19:00"
+  publicStudentRoster
+    {studentUid}: 
+      displayName: string,
+      pickupAreaPublic: null,
 
 students/{userId}
   assignedDriverId: string

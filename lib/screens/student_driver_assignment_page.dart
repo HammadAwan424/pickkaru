@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/firebase_signup_service.dart';
+import '../providers//auth_provider.dart';
 
-class StudentDriverAssignmentPage extends StatefulWidget {
+class StudentDriverAssignmentPage extends ConsumerStatefulWidget {
   final String studentUid;
   const StudentDriverAssignmentPage({super.key, required this.studentUid});
 
   @override
-  State<StudentDriverAssignmentPage> createState() =>
+  ConsumerState<StudentDriverAssignmentPage> createState() =>
       _StudentDriverAssignmentPageState();
 }
 
 class _StudentDriverAssignmentPageState
-    extends State<StudentDriverAssignmentPage> {
+    extends ConsumerState<StudentDriverAssignmentPage> {
   final _driverIdCtrl = TextEditingController();
   final _signupService = FirebaseSignupService();
   bool _loading = false;
@@ -33,6 +35,7 @@ class _StudentDriverAssignmentPageState
     setState(() => _loading = true);
     try {
       await _signupService.assignDriverToStudent(
+        displayName: ref.read(currentUserProvider).valueOrNull!.displayName, // never null for both signup flows
         studentUid: widget.studentUid,
         driverId: driverId,
       );

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/auth_provider.dart';
 
 
 // lib/features/shell/driver_shell.dart
@@ -28,6 +30,32 @@ class _DriverShellState extends State<DriverShell> {
           NavigationDestination(icon: Icon(Icons.poll), label: 'Poll'),
           NavigationDestination(icon: Icon(Icons.settings), label: 'Settings'),
         ],
+      ),
+    );
+  }
+}
+
+class DriverPollPage extends StatelessWidget {
+  const DriverPollPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(child: Text('Driver Poll Page'));
+  }
+}
+
+class DriverSettingsPage extends ConsumerWidget {
+  const DriverSettingsPage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Center(
+      child: OutlinedButton(
+        style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+        onPressed: () async {
+          await ref.read(authServiceProvider).signOut();
+        },
+        child: const Text('Sign out'),
       ),
     );
   }

@@ -21,7 +21,7 @@ class MyApp extends ConsumerWidget {
     return MaterialApp(
       title: 'Pickkaru',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: const RootRouter(),
+      home: RootRouter(),
     );
   }
 }

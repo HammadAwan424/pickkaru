@@ -24,7 +24,7 @@ class _SignInPageState extends State<SignInPage> {
   String _resolveEmail(String value) {
     final trimmed = value.trim();
     if (trimmed.contains('@')) return trimmed.toLowerCase();
-    return '${trimmed.toLowerCase()}@pickkaru.app';
+    return '${trimmed.toLowerCase()}@gmail.com';
   }
 
   Future<void> _signIn() async {

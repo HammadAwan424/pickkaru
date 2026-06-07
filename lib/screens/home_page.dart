@@ -8,7 +8,7 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Pickkaru — Welcome')),
+      appBar: AppBar(title: const Text('Pickkaru Welcome')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(

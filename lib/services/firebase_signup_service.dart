@@ -134,6 +134,7 @@ class FirebaseSignupService {
   Future<void> assignDriverToStudent({
     required String studentUid,
     required String driverId,
+    required String displayName,
   }) async {
     final driverDocId = await _resolveDriverDocId(driverId);
     if (driverDocId == null) {
@@ -151,7 +152,11 @@ class FirebaseSignupService {
 
     final driverRef = _db.collection('drivers').doc(driverDocId);
     batch.update(driverRef, {
-      'assignedStudents': FieldValue.arrayUnion([studentUid])
+      'assignedStudents': FieldValue.arrayUnion([studentUid]),
+      'publicStudentRoster.$studentUid': {
+        'displayName': displayName,
+        'pickupAreaPublic': null,
+      }
     });
 
     final morningRef = driverRef.collection('polls').doc('morning');

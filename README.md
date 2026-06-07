@@ -65,6 +65,10 @@ users/{userId}
 drivers/{userId}
   assignedStudents: <string>[], [auth.md]
   refreshTime: string [auth.md] [TODO: update through profile]
+  publicStudentRoster [auth.md]
+    {studentUid}: 
+      displayName: string,
+      pickupAreaPublic: null,
 
 students/{userId}
   assignedDriverId: string [auth.md]
