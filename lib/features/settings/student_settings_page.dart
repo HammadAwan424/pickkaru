@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/student_provider.dart';
+import 'location_picker_screen.dart';
 
 class StudentSettingsPage extends ConsumerStatefulWidget {
   const StudentSettingsPage({super.key});
@@ -16,6 +17,11 @@ class _StudentSettingsPageState extends ConsumerState<StudentSettingsPage> {
   bool _defaultMorning = false;
   bool _defaultEvening = false;
   bool _initialized = false;
+
+  // map related state
+  String _savedAddress = "No location configured yet";
+  double? _lat;
+  double? _lng;
 
   @override
   void dispose() {
@@ -87,6 +93,46 @@ class _StudentSettingsPageState extends ConsumerState<StudentSettingsPage> {
             controller: _displayNameController,
             decoration: const InputDecoration(labelText: 'Display name'),
           ),
+
+
+          ListTile(
+            leading: const Icon(Icons.location_on, color: Colors.blue),
+            title: const Text("Default Delivery/Target Location"),
+            subtitle: Text(_savedAddress),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              // Navigate and wait for user action
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      LocationPickerScreen(),
+                ),
+              );
+
+              // Handle the data returned from the picker
+              if (result != null && result is Map<String, dynamic>) {
+                setState(() {
+                  _lat = result['latitude'];
+                  _lng = result['longitude'];
+                  _savedAddress = result['address'];
+                });
+
+                // TODO: Persist coordinates locally or push to Backend/Firebase here
+              }
+            },
+          ),
+          if (_lat != null && _lng != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Text(
+                "Lat: $_lat, Lng: $_lng",
+                style: const TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+            ),
+
+
+
           const SizedBox(height: 20),
           const Text('Defaults', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           SwitchListTile(

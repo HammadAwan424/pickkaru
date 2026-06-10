@@ -6,9 +6,16 @@ import 'screens/home_page.dart';
 import 'screens/authenticated_home_page.dart';
 import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+// Pass your access token to MapboxOptions so you can load a map
+  String ACCESS_TOKEN = const String.fromEnvironment("ACCESS_TOKEN");
+  print("ACCESS TOKEN: $ACCESS_TOKEN");
+  MapboxOptions.setAccessToken(ACCESS_TOKEN);
+
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const ProviderScope(child: MyApp()));
 }
