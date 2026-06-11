@@ -1,173 +1,86 @@
 # Polls
 
-Two fixed Firestore documents per driver, reused daily. One poll covers the morning
-ride (home → university), one covers the evening ride (university → home). Students
-answer yes/no and optionally select a stop. The driver uses responses to know who is
-riding and where to pick them up or stop.
+Polls are split into **Parent Configuration** (defining the route), **Private Overrides** (future planning), and a **Shared Daily Board** (today's live status).
 
 ## Constraints
 
-- Exactly two poll documents per driver: `drivers/{driverId}/polls/morning` and
-  `drivers/{driverId}/polls/evening`. Fixed IDs, never recreated — same docs reused daily.
-- Poll times (morning / evening) are semantic labels for ride direction. They do not
-  enforce any time-based access rules on the client.
-- Both polls are always visible via horizontal swipe (PageView). The client never
-  hides a poll based on current time.
-- The only condition that locks a student's response is `boarded: true`. No other
-  lock conditions exist currently. When boarded, the yes/no button and checkpoint
-  selector are hidden.
-- `refreshTime` lives on `drivers/{driverId}`, not on the poll docs. It is a driver-level
-  config that applies to both polls. See Data section.
-- The scheduler writes null to `answer` on polls and is the 
-only thing that resets `boarded`. Students can also write to
-`answer` field.
- 
+- **The Day 0 Rule:** The Shared Daily Board is the **sole** source of truth for "Today". Private overrides are **only** used for Days 1-6 in the future.
+- **Privacy:** Students can see other students' status only for "Today". Future intentions are private.
+- **Defaults:** If no override exists for a future date, the app falls back to the `rosters/{driverId}` document.
+- **Checkpoints:** Evening polls pull their master checkpoint list from the parent configuration document.
+
 ## Data
 
-```
-students/{userId}
-  defaultMorning: boolean,
-  defaultEvening: boolean,
-  defaultCheckpoint: string
-  "location":
-    "lat": number,
-    "lng": number
-  "displayAddress": "string",
+```javascript
+// 1. Parent Config (defines the route)
+polls/{pollId}
+  driverId: string,
+  period: "morning" | "evening", 
+  status: "uninitiated" | "active" | "completed",
+  checkpoints: <string>[] | null
 
-drivers/{driverId}/polls/morning
-  period: "morning", 
-  checkpoints: null, 
+// 2. Shared Daily Board (Today's live status - Day 0)
+polls/{pollId}/responses/{yyyy-mm-dd}
+  approachingStudentIds: <string>[],
   responses: 
     {studentId}: 
-      answer: boolean, 
-      boarded: false, 
+      answer: boolean, // Fully resolved (Override OR Default)
+      checkpoint: string | null,
+      boarded: boolean, 
       updatedAt: timestamp 
 
-drivers/{driverId}/polls/evening 
-  period: "evening", 
-  checkpoints: <string>[], 
-  responses:
-    {studentId}:
-      answer: boolean, 
-      checkpoint: string, 
-      boarded: false, 
-      updatedAt: timestamp 
+// 3. Private Overrides (Future intentions - Days 1-6)
+students/{userId}/overrides/{yyyy-mm-dd}
+  morning: { answer: boolean },
+  evening: { answer: boolean, checkpoint: string | null }
 ```
-
-**On the union type:** morning and evening responses are structurally different.
-In Dart, model this as a sealed class or union:
-
-```dart
-sealed class PollResponse {
-  final bool answer;
-  final bool boarded;
-  final Timestamp updatedAt;
-}
-
-class MorningResponse extends PollResponse { }
-
-class EveningResponse extends PollResponse {
-  final String checkpoint;
-}
-```
-
 
 ## Flow
 
-### Daily Reset (scheduler)
+### User Interface & Interaction Flow
 
-Runs when server time crosses `drivers/{driverId}.refreshTime`.
-1. Works by taking the vote away. Batched write to both poll docs:
-```
-drivers/{driverId}/polls/morning 
-  responses:
-    {studentId}:
-      answer: null,
+- **Unified Poll Screen:** Both the morning and evening polls are presented on a single screen and can be navigated by swiping horizontally. 
+- **Active Ride Map:** When a parent poll document's `status` transitions to `"active"`:
+  - **For Students:** A "Track Ride" button appears, allowing them to view the driver's location on a map.
+  - **For Drivers:** A "Navigation" button appears, providing them with route guidance and map viewing.
+- **Driver Controls:** Only the driver has the authority to tap the "Start Ride" button, which sets the parent poll's `status` to `"active"`.
+- **Future Override Screen (7-Day View):** The student views an upcoming 7-day schedule. Each day is represented as a row containing a dropdown with three options: `Yes`, `No`, and `Default`. 
+  - Selecting `Default` deletes any existing override for that day (or makes no write if one doesn't exist), reverting to the public roster settings.
+  - Selecting `Yes` or `No` writes an explicit boolean override to the `students/{userId}/overrides/{date}` document.
 
-drivers/{driverId}/polls/evening 
-  responses: 
-    {studentId}:
-      answer: null
-```
+### 1. Student Future Planning (Days 1-6)
+When a student views their upcoming schedule:
+1. For each future date, check `students/{userId}/overrides/{date}`.
+2. If override exists, show it.
+3. If no override exists, fall back to `rosters/{driverId}.students.{userId}` default values.
+4. **Writes:** Any change to a future day is written strictly to the student's private `overrides/{date}` document.
 
-### Student Updates Response
+### 2. Daily Initialization (The Merge)
+At the start of a ride (or via Cloud Function), the Shared Daily Board for "Today" is created.
+1. The system reads `rosters/{driverId}` for all student defaults.
+2. The system reads `students/{studentId}/overrides/{today}` for all students.
+3. **Merging:** For each student, if an override for today exists, use it. Otherwise, use their roster default.
+4. **Write:** Create `polls/{pollId}/responses/{today}` with these fully resolved values.
 
-Student can change `answer` or `checkpoint` at any time unless `boarded: true`.
-
-1. Client checks `boarded` on load — hides yes/no button and checkpoint selector if true.
-2. On change, student writes only their own response entry:
-   - `responses/{studentId}.answer` and/or `responses/{studentId}.checkpoint`
-   - `responses/{studentId}.updatedAt: now`
-3. `boarded` is never written by the student during a normal response update.
-
-### Student Marks Boarded
-
-1. Student taps "Mark as boarded."
-2. Client writes `responses/{studentId}.boarded: true` and `updatedAt: now`.
-3. Client hides the yes/no button and checkpoint selector immediately.
-4. This write is not reversible by the student. It resets to `false` only at the
-   next scheduler run.
-
-### Driver Views Poll
-
-1. Driver opens poll screen — reads both poll docs via a Firestore stream.
-2. Morning poll: shows each student's `answer` and their saved pickup location
-   (read from `students/{studentId}.location`, not from the poll response).
-3. Evening poll: shows each student's `answer`, selected `checkpoint`, and `boarded`
-   status. Driver can see per-stop boarding counts to decide when to move.
+### 3. Live Ride Updates ("Today")
+Once the Shared Daily Board exists for the current day:
+1. **Reads:** All users (Driver & Students) stream `polls/{pollId}/responses/{today}`.
+2. **Writes (Student):** If a student changes their mind "today", they write directly to the `responses.{studentId}` map in the Shared Daily Board.
+3. **Writes (Driver):** Driver updates `status` on the parent poll, and `boarded` / `approachingStudentIds` on the Shared Daily Board.
 
 ---
 
-## Edge Cases
-
-### `refreshTime` crosses while the ride is in progress
-The scheduler fires at `refreshTime` regardless of ride state. Rides are expected to
-end before 19:00 so this should not occur in practice. No special handling is
-implemented for a late-running ride. If this becomes a problem, a `rideActive` flag
-on the driver doc could gate the scheduler — out of scope for now.
-
-### Driver removes a checkpoint that a student has selected
-Stale `checkpoint` value is preserved in the response and shown as-is on both driver
-and student screens. No error is shown. Driver handles this out-of-band.
-
----
-
-## Tasks (Needs optimization esp. *_poll_widget contains both the student and driver side logic)
+## Tasks
 
 #### `lib/models/poll.dart`
-Define `Poll`, `MorningResponse`, `EveningResponse` as a sealed class hierarchy.
-Serialize from Firestore. `Poll` holds `period`, `checkpoints`, and a map of
-`responses` keyed by student ID.
-**Acceptance:** Round-trips through `fromFirestore` / `toMap` without data loss.
-Both response types deserialize correctly from the same `responses` map.
-
-#### `lib/features/polls/poll_screen.dart`
-`PageView` with two pages: index 0 = morning, index 1 = evening.
-Active-period indicator (local device time based). Swipe gestures only, no tabs.
-**Acceptance:** Both polls render; swiping navigates between them with no time-gating.
-
-#### `lib/features/polls/morning_poll_widget.dart`
-Reads `drivers/{driverId}/polls/morning` via stream.
-For each student entry: shows `answer`, shows pickup location from
-`students/{studentId}.location` (not from response).
-Hides yes/no button when `boarded: true`.
-**Acceptance:** Boarded students show locked state; location comes from student doc,
-not poll response.
-
-#### `lib/features/polls/evening_poll_widget.dart`
-Reads `drivers/{driverId}/polls/evening` via stream.
-Shows `checkpoints` list for selection, `answer`, `boarded` per student.
-Hides yes/no and checkpoint selector when `boarded: true`.
-Driver view shows per-stop boarding count.
-**Acceptance:** Boarded state hides controls; checkpoint selector only shows current
-`checkpoints` array from poll doc; stale checkpoints display as-is without error.
+Define `PollConfig` (parent), `PollInstance` (daily board), and `PollOverride` (private future).
+Handle nullable vs non-nullable answers based on document type.
 
 #### `lib/services/poll_service.dart`
-Add helpers for:
-- Streaming both poll docs for a given driver ID
-- Updaing/writing a student response entry (answer, checkpoint)
-- Writing `boarded: true` for a student
+- `initializeDailyPoll`: Logic to merge roster defaults and private overrides into the shared board.
+- `streamDailyPoll`: Streams today's resolved responses.
+- `updateFutureOverride`: Writes to private subcollection.
+- `updateTodayResponse`: Writes to shared subcollection.
 
-#### `functions/src/scheduler.ts`
-Scheduled function. On each driver's `refreshTime`:
-- Can't find to writing anything more than [this](#daily-reset-scheduler).
+#### UI Logic
+Implement the split-source strategy in the 7-day schedule view: Day 0 uses the shared board, Days 1-6 use private overrides + roster fallback.
