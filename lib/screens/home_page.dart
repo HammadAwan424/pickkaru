@@ -1,8 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'sign_in_page.dart';
-import 'sign_up_page.dart';
+import '../services/firebase_signup_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -13,6 +12,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
+  bool _loading = false;
 
   @override
   void initState() {
@@ -29,12 +29,28 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     super.dispose();
   }
 
+  Future<void> _handleGoogleSignIn() async {
+    setState(() => _loading = true);
+    try {
+      final svc = FirebaseSignupService();
+      await svc.signInWithGoogleOnly();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sign in failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
+      backgroundColor: const Color(0xFFF3F4F6), // Clean off-white background
       body: Stack(
         children: [
           // Dynamic Transit Background
@@ -98,18 +114,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             ),
           ),
 
-          // Action Card at Bottom
+          // Action Card at Bottom (Highly rounded radius 32)
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
             child: Container(
-              padding: const EdgeInsets.fromLTRB(28, 32, 28, 48),
+              padding: const EdgeInsets.fromLTRB(28, 36, 28, 48),
               decoration: const BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(36),
-                  topRight: Radius.circular(36),
+                  topLeft: Radius.circular(32),
+                  topRight: Radius.circular(32),
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -144,48 +160,62 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   ),
                   const SizedBox(height: 32),
                   
-                  // Sign In Button (Primary Teal, highly rounded)
+                  // Unified "Continue with Google" Button
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0D9488), // Teal Primary
+                      backgroundColor: const Color(0xFF0D9488), // Teal Accent Primary
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
                       elevation: 4,
                       shadowColor: const Color(0xFF0D9488).withValues(alpha: 0.3),
-                    ),
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const SignInPage()),
-                      );
-                    },
-                    child: const Text(
-                      'Sign In',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  
-                  // Create Account Button (Secondary Orange outline, highly rounded)
-                  OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFF97316), // Warm Orange Secondary
-                      side: const BorderSide(color: Color(0xFFF97316), width: 1.8),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
+                        borderRadius: BorderRadius.circular(30), // Highly rounded
                       ),
                     ),
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const SignUpPage()),
-                      );
-                    },
-                    child: const Text(
-                      'Create Account',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    onPressed: _loading ? null : _handleGoogleSignIn,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (_loading)
+                          const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        else ...[
+                          // Clean White Backdrop Google Icon
+                          Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Image.network(
+                              'https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg',
+                              height: 18,
+                              width: 18,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Icon(
+                                  Icons.g_mobiledata,
+                                  size: 18,
+                                  color: Colors.red,
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Text(
+                            'Continue with Google',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],

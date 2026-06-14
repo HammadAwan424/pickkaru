@@ -43,6 +43,41 @@ class FirebaseSignupService {
     }
   }
 
+  Future<void> signInWithGoogleOnly() async {
+    if (kIsWeb) {
+      throw Exception(
+          'Google sign-in is not supported on web in this scaffold');
+    }
+
+    final googleUser = await GoogleSignIn().signIn();
+    if (googleUser == null) throw Exception('Google sign-in aborted');
+    final googleAuth = await googleUser.authentication;
+    final credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+    final userCred = await _auth.signInWithCredential(credential);
+    final user = userCred.user;
+
+    if (user == null) {
+      throw Exception('Authentication succeeded but no user was returned.');
+    }
+  }
+
+  Future<void> createSignupFirestoreProfile({
+    required String uid,
+    required String username,
+    required String displayName,
+    required roles role,
+  }) async {
+    await _createSignupFirestoreProfile(
+      uid: uid,
+      username: username,
+      displayName: displayName,
+      role: role,
+    );
+  }
+
   Future<void> _createSignupFirestoreProfile({
     required String uid,
     required String username,

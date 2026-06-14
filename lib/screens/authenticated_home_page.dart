@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
+import '../providers/student_provider.dart';
 import '../models/enums.dart';
 import 'driver_shell.dart';
-import 'student_gateway.dart';
-import 'sign_up_page.dart';
+import 'student_shell.dart';
+import 'student_driver_assignment_page.dart';
+import 'role_selection_page.dart';
 
 class AuthenticatedHomePage extends ConsumerStatefulWidget {
   const AuthenticatedHomePage({super.key});
@@ -20,21 +22,61 @@ class _AuthenticatedHomePageState extends ConsumerState<AuthenticatedHomePage> {
     final userAsync = ref.watch(currentUserProvider);
 
     return userAsync.when(
-      data: (user) {
-        if (user == null) {
-          return const SignUpPage();
-        }
-        return switch (user.role) {
-          roles.driver => const DriverShell(),
-          roles.student => const StudentGateway(),
-        };
-      },
       loading: () => const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        backgroundColor: Color(0xFFF3F4F6),
+        body: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0D9488)),
+          ),
+        ),
       ),
       error: (err, stack) => Scaffold(
-        body: Center(child: Text('Error: $err')),
+        backgroundColor: const Color(0xFFF3F4F6),
+        body: Center(
+          child: Text(
+            'Error loading profile: $err',
+            style: const TextStyle(color: Colors.red),
+          ),
+        ),
       ),
+      data: (user) {
+        if (user == null) {
+          return const RoleSelectionPage();
+        }
+
+        if (user.role == roles.driver) {
+          return const DriverShell();
+        }
+
+        // It is a student, watch their setup state dynamically
+        final studentAsync = ref.watch(studentProvider(user.uid));
+        
+        return studentAsync.when(
+          loading: () => const Scaffold(
+            backgroundColor: Color(0xFFF3F4F6),
+            body: Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0D9488)),
+              ),
+            ),
+          ),
+          error: (err, stack) => Scaffold(
+            backgroundColor: const Color(0xFFF3F4F6),
+            body: Center(
+              child: Text(
+                'Error loading student record: $err',
+                style: const TextStyle(color: Colors.red),
+              ),
+            ),
+          ),
+          data: (student) {
+            if (student == null || student.assignedDriverId == null) {
+              return StudentDriverAssignmentPage(studentUid: user.uid);
+            }
+            return const StudentShell();
+          },
+        );
+      },
     );
   }
 }
