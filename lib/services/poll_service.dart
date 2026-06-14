@@ -168,9 +168,8 @@ class PollService {
       'responses.$studentId.updatedAt': FieldValue.serverTimestamp(),
     };
 
-    await _responsesRef(driverId, period, dateStr).set(
+    await _responsesRef(driverId, period, dateStr).update(
       updates,
-      SetOptions(merge: true),
     );
   }
 
