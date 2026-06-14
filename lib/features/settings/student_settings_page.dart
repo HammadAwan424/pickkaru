@@ -44,6 +44,7 @@ class _StudentSettingsPageState extends ConsumerState<StudentSettingsPage> {
 
     await service.updateStudentDefaults(
       uid: uid,
+      assignedDriverId: assignedDriverId,
       defaultMorning: _defaultMorning,
       defaultEvening: _defaultEvening,
       defaultCheckpoint: _checkpointController.text.trim().isEmpty

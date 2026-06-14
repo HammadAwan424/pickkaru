@@ -11,15 +11,24 @@ class StudentGateway extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(currentUserProvider).value!; // already loaded
+    final user = ref.watch(currentUserProvider).valueOrNull;
+    if (user == null) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
 
     final studentAsync = ref.watch(studentProvider(user.uid));
     return studentAsync.when(
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
       error:   (e, _) => Scaffold(body: Center(child: Text('Error: $e'))),
-      data: (student) => switch (student!.assignedDriverId) {
-        null => _UnassignedView(studentUid: user.uid),
-        _    => const StudentShell(),
+      data: (student) {
+        if (student == null || student.assignedDriverId == null) {
+          return _UnassignedView(studentUid: user.uid);
+        }
+        return const StudentShell();
       },
     );
   }

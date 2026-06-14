@@ -4,48 +4,10 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 import '../models/enums.dart';
 
-
-
 class FirebaseSignupService {
   final _auth = FirebaseAuth.instance;
   final _db = FirebaseFirestore.instance;
 
-  /// Signs up a user using a username + secret code.
-  ///
-  /// This scaffold maps `username` to a synthetic email of the form
-  /// `<username>@gmail.com` in order to reuse Firebase Email/Password auth.
-  Future<String> signUpWithUsername({
-    required String username,
-    required String secret,
-    required roles role,
-  }) async {
-    final email = '${username.toLowerCase()}@gmail.com';
-
-    // Create auth user, if it exists, this will throw an error which we can catch and show to the user
-    final cred = await _auth.createUserWithEmailAndPassword(
-        email: email, password: secret);
-    final uid = cred.user?.uid;
-    if (uid == null) throw Exception('Failed to create user');
-    // Create the required Firestore documents for this signup using a batched write.
-    await _createSignupFirestoreProfile(
-      uid: uid,
-      username: username,
-      displayName: username,
-      role: role,
-    );
-
-    return uid;
-  }
-
-  Future<void> signInWithEmailPassword({
-    required String email,
-    required String password,
-  }) async {
-    await _auth.signInWithEmailAndPassword(email: email, password: password);
-  }
-
-  // since this handles both sign-in and sign-up,
-  // we only create a user document if one doesn't already exist for the signed-in Google user
   Future<void> signInWithGoogle([roles? role]) async {
     if (kIsWeb) {
       throw Exception(
@@ -68,7 +30,6 @@ class FirebaseSignupService {
 
     final isNewUser = (await _db.collection("users").doc(user.uid).get()).exists == false;
     if (isNewUser) {
-      // we aren't expecting no role for signup call
       if (role == null) {
         throw StateError('New users must provide a role');
       }
@@ -82,8 +43,6 @@ class FirebaseSignupService {
     }
   }
 
-  // Centralized Firestore writes for signup flows (username & Google).
-  // Writes are batched and follow the structure described in docs/auth.md.
   Future<void> _createSignupFirestoreProfile({
     required String uid,
     required String username,
@@ -104,20 +63,32 @@ class FirebaseSignupService {
       batch.set(driversRef, {
         'assignedStudents': <String>[],
         'refreshTime': '19:00',
+        'timeZoneName': 'Asia/Karachi',
       });
 
-      final morningRef = driversRef.collection('polls').doc('morning');
-      batch.set(morningRef, {
-        'period': 'morning',
-        'checkpoints': null,
-        'responses': <String, dynamic>{},
-      });
+      final now = DateTime.now();
+      final today = '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
-      final eveningRef = driversRef.collection('polls').doc('evening');
-      batch.set(eveningRef, {
-        'period': 'evening',
-        'checkpoints': <String>[],
-        'responses': <String, dynamic>{},
+      for (final period in ['morning', 'evening']) {
+        final pollRef = _db.collection('polls').doc('${uid}_$period');
+        batch.set(pollRef, {
+          'driverId': uid,
+          'period': period,
+          'status': 'uninitiated',
+          'checkpoints': period == 'morning' ? null : <String>[],
+        });
+
+        final responsesRef =
+            pollRef.collection('responses').doc(today);
+        batch.set(responsesRef, {
+          'responses': <String, dynamic>{},
+          'approachingStudentIds': <String>[],
+        });
+      }
+
+      final rosterRef = _db.collection('rosters').doc(uid);
+      batch.set(rosterRef, {
+        'students': <String, dynamic>{},
       });
     } else {
       final studentsRef = _db.collection('students').doc(uid);
@@ -129,8 +100,6 @@ class FirebaseSignupService {
     await batch.commit();
   }
 
-
-
   Future<void> assignDriverToStudent({
     required String studentUid,
     required String driverId,
@@ -141,10 +110,6 @@ class FirebaseSignupService {
       throw Exception('Driver does not exist');
     }
 
-    // Perform a batched write per docs/auth.md:
-    //  - set students/{studentUid}.assignedDriverId
-    //  - arrayUnion student on drivers/{driverDocId}.assignedStudents
-    //  - add responses entries under drivers/{driverDocId}/polls/morning and /evening
     final batch = _db.batch();
 
     final studentRef = _db.collection('students').doc(studentUid);
@@ -153,42 +118,51 @@ class FirebaseSignupService {
     final driverRef = _db.collection('drivers').doc(driverDocId);
     batch.update(driverRef, {
       'assignedStudents': FieldValue.arrayUnion([studentUid]),
-      'publicStudentRoster.$studentUid': {
-        'displayName': displayName,
-        'pickupAreaPublic': null,
-      }
     });
 
-    final morningRef = driverRef.collection('polls').doc('morning');
+    final rosterRef = _db.collection('rosters').doc(driverDocId);
     batch.set(
-      morningRef,
+      rosterRef,
       {
-        'responses': {
+        'students': {
           studentUid: {
-            'answer': null,
-            'boarded': false,
-            'updatedAt': FieldValue.serverTimestamp(),
+            'displayName': displayName,
+            'defaultMorning': true,
+            'defaultEvening': true,
+            'defaultCheckpoint': null,
           }
         }
       },
       SetOptions(merge: true),
     );
 
-    final eveningRef = driverRef.collection('polls').doc('evening');
-    batch.set(
-      eveningRef,
-      {
-        'responses': {
-          studentUid: {
-            'answer': null,
-            'checkpoint': null,
-            'boarded': false,
-            'updatedAt': FieldValue.serverTimestamp(),
-          }
-        }
-      },
-      SetOptions(merge: true),
-    );
+    final now = DateTime.now();
+    final today = '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    for (final period in ['morning', 'evening']) {
+      final responsesRef = _db
+          .collection('polls')
+          .doc('${driverDocId}_$period')
+          .collection('responses')
+          .doc(today);
+
+      final responseData = <String, dynamic>{
+        'answer': null,
+        'boarded': false,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      if (period == 'evening') {
+        responseData['checkpoint'] = null;
+      }
+
+      batch.set(
+        responsesRef,
+        {
+          'responses': {studentUid: responseData},
+        },
+        SetOptions(merge: true),
+      );
+    }
 
     await batch.commit();
   }

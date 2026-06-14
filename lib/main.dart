@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pickkaru/root_router.dart';
-import 'screens/home_page.dart';
-import 'screens/authenticated_home_page.dart';
 import 'firebase_options.dart';
-import 'providers/auth_provider.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 
 void main() async {

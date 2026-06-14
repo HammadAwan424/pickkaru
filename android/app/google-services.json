@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "671801788510",
+    "project_id": "phrasal-alpha-407309",
+    "storage_bucket": "phrasal-alpha-407309.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:671801788510:android:0037703e3b5222c650cccf",
+        "android_client_info": {
+          "package_name": "com.app.pickkaru"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDtyzDvGjCJgv9YHi3jEjSQQhwzDnOYMB4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

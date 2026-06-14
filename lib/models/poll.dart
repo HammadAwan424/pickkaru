@@ -5,6 +5,17 @@ enum PollPeriod {
   evening,
 }
 
+enum PollStatus {
+  uninitiated,
+  active,
+  completed;
+
+  String get firestoreValue => name;
+  static PollStatus fromFirestore(String value) {
+    return PollStatus.values.byName(value);
+  }
+}
+
 extension PollPeriodFirestore on PollPeriod {
   String get firestoreId => name;
 
@@ -47,12 +58,14 @@ class PollResponse {
 
 class Poll {
   final PollPeriod period;
+  final PollStatus status;
   final List<String>? checkpoints;
   final Map<String, PollResponse> responses;
   final List<String> approachingStudentIds;
 
   const Poll({
     required this.period,
+    required this.status,
     required this.checkpoints,
     required this.responses,
     required this.approachingStudentIds,
@@ -64,6 +77,11 @@ class Poll {
         ? fallbackPeriod ?? PollPeriod.morning
         : PollPeriodFirestore.fromFirestore(periodValue);
 
+    final statusValue = map['status'] as String?;
+    final status = statusValue == null
+        ? PollStatus.uninitiated
+        : PollStatus.fromFirestore(statusValue);
+
     final rawResponses = map['responses'] as Map<String, dynamic>? ?? {};
     final responses = rawResponses.map((studentId, value) {
       return MapEntry(
@@ -74,6 +92,7 @@ class Poll {
 
     return Poll(
       period: period,
+      status: status,
       checkpoints: map['checkpoints'] == null
           ? null
           : List<String>.from(map['checkpoints'] as List),
@@ -83,9 +102,34 @@ class Poll {
     );
   }
 
+  /// Creates a Poll from a daily board document (responses subcollection).
+  /// These docs only have `responses` and `approachingStudentIds`.
+  factory Poll.fromResponsesMap({
+    required PollPeriod period,
+    required Map<String, dynamic> data,
+  }) {
+    final rawResponses = data['responses'] as Map<String, dynamic>? ?? {};
+    final responses = rawResponses.map((studentId, value) {
+      return MapEntry(
+        studentId,
+        PollResponse.fromMap(Map<String, dynamic>.from(value as Map)),
+      );
+    });
+
+    return Poll(
+      period: period,
+      status: PollStatus.active,
+      checkpoints: period == PollPeriod.evening ? <String>[] : null,
+      responses: responses,
+      approachingStudentIds:
+          List<String>.from(data['approachingStudentIds'] ?? <String>[]),
+    );
+  }
+
   factory Poll.empty(PollPeriod period) {
     return Poll(
       period: period,
+      status: PollStatus.uninitiated,
       checkpoints: period == PollPeriod.evening ? <String>[] : null,
       responses: const {},
       approachingStudentIds: const [],
@@ -95,6 +139,7 @@ class Poll {
   Map<String, dynamic> toMap() {
     return {
       'period': period.firestoreId,
+      'status': status.firestoreValue,
       'checkpoints': checkpoints,
       'responses': responses.map(
         (studentId, response) => MapEntry(
@@ -121,5 +166,48 @@ class DriverPolls {
       PollPeriod.morning => morning,
       PollPeriod.evening => evening,
     };
+  }
+}
+
+class PrivateOverride {
+  final bool? morningAnswer;
+  final bool? eveningAnswer;
+  final String? eveningCheckpoint;
+
+  const PrivateOverride({
+    this.morningAnswer,
+    this.eveningAnswer,
+    this.eveningCheckpoint,
+  });
+
+  factory PrivateOverride.fromMap(Map<String, dynamic> map) {
+    return PrivateOverride(
+      morningAnswer: map['morning']?['answer'] as bool?,
+      eveningAnswer: map['evening']?['answer'] as bool?,
+      eveningCheckpoint: map['evening']?['checkpoint'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      if (morningAnswer != null) 'morning': {'answer': morningAnswer},
+      if (eveningAnswer != null || eveningCheckpoint != null)
+        'evening': {
+          if (eveningAnswer != null) 'answer': eveningAnswer,
+          if (eveningCheckpoint != null) 'checkpoint': eveningCheckpoint,
+        },
+    };
+  }
+
+  PrivateOverride copyWith({
+    bool? morningAnswer,
+    bool? eveningAnswer,
+    String? eveningCheckpoint,
+  }) {
+    return PrivateOverride(
+      morningAnswer: morningAnswer ?? this.morningAnswer,
+      eveningAnswer: eveningAnswer ?? this.eveningAnswer,
+      eveningCheckpoint: eveningCheckpoint ?? this.eveningCheckpoint,
+    );
   }
 }

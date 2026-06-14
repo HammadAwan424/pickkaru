@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isDriver() {
+      return isAuth() && getUserData().role == 'driver';
+    }
+
+    function isStudent() {
+      return isAuth() && getUserData().role == 'student';
+    }
+
+    function isAssignedStudent(driverId) {
+      return isStudent() && get(/databases/$(database)/documents/students/$(request.auth.uid)).data.assignedDriverId == driverId;
+    }
+
+    // ── users/{userId} ──────────────────────────────────────────
+    match /users/{userId} {
+      allow read: if isAuth() && (request.auth.uid == userId || isDriver());
+      allow create: if request.auth.uid == userId;
+      allow update: if request.auth.uid == userId;
+      allow delete: if false;
+    }
+
+    // ── drivers/{driverId} ──────────────────────────────────────
+    match /drivers/{driverId} {
+      allow read: if isAuth() && (request.auth.uid == driverId
+        || (isStudent() && get(/databases/$(database)/documents/students/$(request.auth.uid)).data.assignedDriverId == driverId));
+      allow create: if request.auth.uid == driverId;
+      
+      // FIXED: Allows the driver full update access, BUT allows a student 
+      // to ONLY update the 'assignedStudents' array to link themselves.
+      allow update: if request.auth.uid == driverId || 
+        (isStudent() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['assignedStudents']));
+      allow delete: if false;
+    }
+
+    // ── rosters/{driverId} ──────────────────────────────────────
+    // FIXED: Added the missing rosters collection
+    match /rosters/{driverId} {
+      allow read: if isAuth() && (request.auth.uid == driverId || isAssignedStudent(driverId));
+      // Allows drivers to update, and assigned students to add their initial defaults during the assignment flow.
+      allow create, update: if request.auth.uid == driverId || isAssignedStudent(driverId);
+      allow delete: if false;
+    }
+
+    // ── students/{studentId} ────────────────────────────────────
+    match /students/{studentId} {
+      allow read: if isAuth() && (request.auth.uid == studentId
+        || (isDriver() && studentId in (get(/databases/$(database)/documents/drivers/$(request.auth.uid)).data.assignedStudents)));
+      allow create: if request.auth.uid == studentId;
+      allow update: if request.auth.uid == studentId
+        || (isDriver() && studentId in get(/databases/$(database)/documents/drivers/$(request.auth.uid)).data.assignedStudents);
+      allow delete: if false;
+
+      // ── students/{studentId}/overrides/{date} ─────────────────
+      // Private future overrides — only the student can read/write their own overrides
+      match /overrides/{date} {
+        allow read, write: if request.auth.uid == studentId;
+      }
+    }
+
+    // ── polls/{pollId} ──────────────────────────────────────────
+    // FIXED: Moved to root level to match poll.md schema.
+    match /polls/{pollId} {
+      allow read: if isAuth() && (request.auth.uid == resource.data.driverId || isAssignedStudent(resource.data.driverId));
+      allow create: if request.auth.uid == request.resource.data.driverId;
+      // Only the driver can update the parent config (like status or checkpoints)
+      allow update: if request.auth.uid == resource.data.driverId;
+      allow delete: if false;
+
+      // ── polls/{pollId}/responses/{date} ───────────────────────
+      // Shared Daily Board
+      match /responses/{date} {
+        allow read: if isAuth() && (request.auth.uid == get(/databases/$(database)/documents/polls/$(pollId)).data.driverId || isAssignedStudent(get(/databases/$(database)/documents/polls/$(pollId)).data.driverId));
+        
+        allow create: if request.auth.uid == get(/databases/$(database)/documents/polls/$(pollId)).data.driverId;
+        
+        // FIXED: Driver can update anything. Student can ONLY update the `responses` map for their live day-of decision.
+        allow update: if request.auth.uid == get(/databases/$(database)/documents/polls/$(pollId)).data.driverId || 
+          (isAssignedStudent(get(/databases/$(database)/documents/polls/$(pollId)).data.driverId) && 
+           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['responses']));
+      }
+    }
+  }
+}

@@ -5,7 +5,9 @@ import '../../models/poll.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/driver_provider.dart';
 import '../../providers/poll_provider.dart';
+import '../../providers/roster_provider.dart';
 import '../../providers/student_provider.dart';
+import 'student_planning_page.dart';
 
 class StudentPollPage extends ConsumerStatefulWidget {
   const StudentPollPage({super.key});
@@ -65,6 +67,20 @@ class _StudentPollPageState extends ConsumerState<StudentPollPage> {
             return _PollScaffold(
               title: 'Route poll',
               actions: [
+                IconButton(
+                  icon: const Icon(Icons.calendar_month_outlined),
+                  tooltip: 'Plan ahead',
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => StudentPlanningPage(
+                          studentId: user.uid,
+                          driverId: driverId,
+                        ),
+                      ),
+                    );
+                  },
+                ),
                 Padding(
                   padding: const EdgeInsetsDirectional.only(end: 16),
                   child: _PeriodSwitcher(
@@ -91,18 +107,27 @@ class _StudentPollPageState extends ConsumerState<StudentPollPage> {
                       message: 'Could not load today\'s polls: $error',
                     ),
                     data: (polls) {
-                      final roster = driver.publicStudentRoster.map(
-                        (studentId, entry) => MapEntry(
-                          studentId,
-                          _PublicStudent(
-                            displayName: entry.displayName,
-                            pickupAreaPublic: entry.pickupAreaPublic,
-                          ),
-                        ),
-                      );
+                      final poll = _period == PollPeriod.morning
+                          ? polls.morning
+                          : polls.evening;
+
+                      final rosterAsync = ref.watch(rosterProvider(driverId));
+                      final roster = rosterAsync.valueOrNull?.students.map(
+                            (studentId, entry) => MapEntry(
+                              studentId,
+                              _PublicStudent(
+                                displayName: entry.displayName,
+                              ),
+                            ),
+                          ) ?? <String, _PublicStudent>{};
 
                       return Column(
                         children: [
+                          if (poll.status == PollStatus.active)
+                            _RideStatusBanner(
+                              driverId: driverId,
+                              period: _period,
+                            ),
                           Expanded(
                             child: PageView(
                               controller: _pageController,
@@ -153,6 +178,56 @@ class _StudentPollPageState extends ConsumerState<StudentPollPage> {
       index,
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeOutCubic,
+    );
+  }
+}
+
+class _RideStatusBanner extends ConsumerWidget {
+  const _RideStatusBanner({
+    required this.driverId,
+    required this.period,
+  });
+
+  final String driverId;
+  final PollPeriod period;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.green.shade50,
+        border: Border(
+          bottom: BorderSide(color: Colors.green.shade200),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.route, color: Colors.green.shade700, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Ride is active — driver is on the way.',
+              style: TextStyle(
+                color: Colors.green.shade800,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          FilledButton.tonalIcon(
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Track ride — coming soon'),
+                ),
+              );
+            },
+            icon: const Icon(Icons.map, size: 18),
+            label: const Text('Track Ride'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -239,13 +314,14 @@ class _StudentPollRow extends ConsumerStatefulWidget {
 class _StudentPollRowState extends ConsumerState<_StudentPollRow> {
   bool _isSaving = false;
 
+  DateTime get _today => DateTime.now();
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final response = widget.response;
     final tint = _rowTint(colors, response, widget.isApproaching);
     final displayName = widget.publicStudent.displayName?.trim();
-    final pickupArea = widget.publicStudent.pickupAreaPublic?.trim();
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -280,17 +356,7 @@ class _StudentPollRowState extends ConsumerState<_StudentPollRow> {
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        pickupArea == null || pickupArea.isEmpty
-                            ? 'Pickup area unavailable'
-                            : pickupArea,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colors.onSurfaceVariant,
-                            ),
-                      ),
+
                     ],
                   ),
                 ),
@@ -316,21 +382,23 @@ class _StudentPollRowState extends ConsumerState<_StudentPollRow> {
                         driverId: widget.driverId,
                         period: widget.period,
                         studentId: widget.studentId,
+                        date: _today,
                         answer: answer,
                       ),
                 ),
                 onCheckpointChanged: widget.period == PollPeriod.evening
                     ? (checkpoint) => _save(
-                          () => ref
-                              .read(pollActionsProvider)
-                              .updateStudentResponse(
-                                driverId: widget.driverId,
-                                period: widget.period,
-                                studentId: widget.studentId,
-                                updateAnswer: false,
-                                checkpoint: checkpoint,
-                                updateCheckpoint: true,
-                              ),
+                            () => ref
+                                .read(pollActionsProvider)
+                                .updateStudentResponse(
+                                  driverId: widget.driverId,
+                                  period: widget.period,
+                                  studentId: widget.studentId,
+                                  date: _today,
+                                  updateAnswer: false,
+                                  checkpoint: checkpoint,
+                                  updateCheckpoint: true,
+                                ),
                         )
                     : null,
                 onMarkBoarded: response?.boarded == true
@@ -341,6 +409,7 @@ class _StudentPollRowState extends ConsumerState<_StudentPollRow> {
                                     driverId: widget.driverId,
                                     period: widget.period,
                                     studentId: widget.studentId,
+                                    date: _today,
                                   ),
                         ),
               ),
@@ -613,11 +682,9 @@ class _ErrorState extends StatelessWidget {
 class _PublicStudent {
   const _PublicStudent({
     this.displayName,
-    this.pickupAreaPublic,
   });
 
   final String? displayName;
-  final String? pickupAreaPublic;
 }
 
 class _RowTint {

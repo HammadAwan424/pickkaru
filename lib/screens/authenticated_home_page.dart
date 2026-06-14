@@ -4,6 +4,7 @@ import '../providers/auth_provider.dart';
 import '../models/enums.dart';
 import 'driver_shell.dart';
 import 'student_gateway.dart';
+import 'sign_up_page.dart';
 
 class AuthenticatedHomePage extends ConsumerStatefulWidget {
   const AuthenticatedHomePage({super.key});
@@ -20,7 +21,10 @@ class _AuthenticatedHomePageState extends ConsumerState<AuthenticatedHomePage> {
 
     return userAsync.when(
       data: (user) {
-        return switch (user!.role) {
+        if (user == null) {
+          return const SignUpPage();
+        }
+        return switch (user.role) {
           roles.driver => const DriverShell(),
           roles.student => const StudentGateway(),
         };

@@ -1,30 +1,43 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:pickkaru/main.dart';
+import 'package:pickkaru/models/driver.dart';
+import 'package:pickkaru/models/poll.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  group('Model Tests', () {
+    test('DriverModel parsing works and includes timeZoneName', () {
+      final map = {
+        'assignedStudents': ['student1', 'student2'],
+        'refreshTime': '18:30',
+        'timeZoneName': 'Asia/Karachi',
+      };
+      
+      final driver = DriverModel.fromMap('driver123', map);
+      
+      expect(driver.uid, 'driver123');
+      expect(driver.assignedStudents, ['student1', 'student2']);
+      expect(driver.refreshTime, '18:30');
+      expect(driver.timeZoneName, 'Asia/Karachi');
+      
+      final outMap = driver.toMap();
+      expect(outMap['timeZoneName'], 'Asia/Karachi');
+    });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    test('PrivateOverride parsing works', () {
+      final map = {
+        'morning': {'answer': true},
+        'evening': {'answer': false, 'checkpoint': 'Stop A'},
+      };
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+      final override = PrivateOverride.fromMap(map);
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+      expect(override.morningAnswer, true);
+      expect(override.eveningAnswer, false);
+      expect(override.eveningCheckpoint, 'Stop A');
+
+      final outMap = override.toMap();
+      expect(outMap['morning']['answer'], true);
+      expect(outMap['evening']['answer'], false);
+      expect(outMap['evening']['checkpoint'], 'Stop A');
+    });
   });
 }

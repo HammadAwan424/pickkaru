@@ -42,6 +42,104 @@ final pollProvider = StreamProvider.family<Poll?, PollStreamArgs>((ref, args) {
       );
 });
 
+// ── Daily Board Provider ──
+
+@immutable
+class DailyBoardArgs {
+  final String driverId;
+  final PollPeriod period;
+  final DateTime date;
+
+  const DailyBoardArgs({
+    required this.driverId,
+    required this.period,
+    required this.date,
+  });
+
+  @override
+  bool operator ==(Object other) {
+    return other is DailyBoardArgs &&
+        other.driverId == driverId &&
+        other.period == period &&
+        other.date == date;
+  }
+
+  @override
+  int get hashCode => Object.hash(driverId, period, date);
+}
+
+final dailyBoardProvider =
+    StreamProvider.family<Poll?, DailyBoardArgs>((ref, args) {
+  return ref.watch(pollServiceProvider).watchDailyBoard(
+        driverId: args.driverId,
+        period: args.period,
+        date: args.date,
+      );
+});
+
+// ── Override Providers ──
+
+@immutable
+class OverrideStreamArgs {
+  final String studentId;
+  final DateTime date;
+
+  const OverrideStreamArgs({
+    required this.studentId,
+    required this.date,
+  });
+
+  @override
+  bool operator ==(Object other) {
+    return other is OverrideStreamArgs &&
+        other.studentId == studentId &&
+        other.date == date;
+  }
+
+  @override
+  int get hashCode => Object.hash(studentId, date);
+}
+
+final overrideProvider =
+    StreamProvider.family<PrivateOverride?, OverrideStreamArgs>((ref, args) {
+  return ref.watch(pollServiceProvider).watchOverride(
+        studentId: args.studentId,
+        date: args.date,
+      );
+});
+
+@immutable
+class OverrideWeekArgs {
+  final String studentId;
+  final DateTime start;
+
+  const OverrideWeekArgs({
+    required this.studentId,
+    required this.start,
+  });
+
+  @override
+  bool operator ==(Object other) {
+    return other is OverrideWeekArgs &&
+        other.studentId == studentId &&
+        other.start == start;
+  }
+
+  @override
+  int get hashCode => Object.hash(studentId, start);
+}
+
+final overridesForWeekProvider =
+    StreamProvider.family<List<MapEntry<DateTime, PrivateOverride>>, OverrideWeekArgs>(
+        (ref, args) {
+  return ref.watch(pollServiceProvider).watchOverridesForWeek(
+        studentId: args.studentId,
+        start: args.start,
+      );
+});
+
+// ── Poll Actions ──
+
 final pollActionsProvider = Provider<PollActions>((ref) {
   return PollActions(ref);
 });
@@ -51,10 +149,31 @@ class PollActions {
 
   final Ref _ref;
 
+  Future<void> startRide({
+    required String driverId,
+    required PollPeriod period,
+  }) {
+    return _ref.read(pollServiceProvider).startRide(
+          driverId: driverId,
+          period: period,
+        );
+  }
+
+  Future<void> completeRide({
+    required String driverId,
+    required PollPeriod period,
+  }) {
+    return _ref.read(pollServiceProvider).completeRide(
+          driverId: driverId,
+          period: period,
+        );
+  }
+
   Future<void> updateStudentResponse({
     required String driverId,
     required PollPeriod period,
     required String studentId,
+    required DateTime date,
     bool? answer,
     bool updateAnswer = true,
     String? checkpoint,
@@ -64,6 +183,7 @@ class PollActions {
           driverId: driverId,
           period: period,
           studentId: studentId,
+          date: date,
           answer: answer,
           updateAnswer: updateAnswer,
           checkpoint: checkpoint,
@@ -75,35 +195,31 @@ class PollActions {
     required String driverId,
     required PollPeriod period,
     required String studentId,
+    required DateTime date,
   }) {
-    final poll = _readPoll(driverId: driverId, period: period);
-    final response = poll.responses[studentId];
-
-    if (response == null) {
-      throw StateError('Student response does not exist for this poll.');
-    }
-
-    if (response.boarded) {
-      return Future.value();
-    }
-
     return _ref.read(pollServiceProvider).setStudentBoarded(
           driverId: driverId,
           period: period,
           studentId: studentId,
+          date: date,
         );
   }
 
   Future<String?> markNextStudentApproaching({
     required String driverId,
     required PollPeriod period,
+    required DateTime date,
   }) async {
     final driver = _ref.read(driverProvider(driverId)).value;
-    final poll = _readPoll(driverId: driverId, period: period);
-
     if (driver == null) {
       throw StateError('Driver is not loaded.');
     }
+
+    final poll = _readDailyBoard(
+      driverId: driverId,
+      period: period,
+      date: date,
+    );
 
     final approachingStudentIds = poll.approachingStudentIds.toSet();
     for (final studentId in driver.assignedStudents) {
@@ -117,6 +233,7 @@ class PollActions {
               driverId: driverId,
               period: period,
               studentId: studentId,
+              date: date,
             );
         return studentId;
       }
@@ -125,16 +242,65 @@ class PollActions {
     return null;
   }
 
-  Poll _readPoll({
+  Future<void> updateFutureOverride({
+    required String studentId,
+    required DateTime date,
+    bool? morningAnswer,
+    bool? eveningAnswer,
+    String? eveningCheckpoint,
+  }) {
+    return _ref.read(pollServiceProvider).updateFutureOverride(
+          studentId: studentId,
+          date: date,
+          morningAnswer: morningAnswer,
+          eveningAnswer: eveningAnswer,
+          eveningCheckpoint: eveningCheckpoint,
+        );
+  }
+
+  Future<void> deleteFutureOverride({
+    required String studentId,
+    required DateTime date,
+  }) {
+    return _ref.read(pollServiceProvider).deleteFutureOverride(
+          studentId: studentId,
+          date: date,
+        );
+  }
+
+  Future<void> initializeDailyPoll({
     required String driverId,
     required PollPeriod period,
+    required String date,
+    required Map<String, bool> studentDefaults,
+    required Map<String, String?> studentDefaultCheckpoints,
+    required Map<String, PrivateOverride> todayOverrides,
+  }) {
+    return _ref.read(pollServiceProvider).initializeDailyPoll(
+          driverId: driverId,
+          period: period,
+          date: date,
+          studentDefaults: studentDefaults,
+          studentDefaultCheckpoints: studentDefaultCheckpoints,
+          todayOverrides: todayOverrides,
+        );
+  }
+
+  Poll _readDailyBoard({
+    required String driverId,
+    required PollPeriod period,
+    required DateTime date,
   }) {
     final poll = _ref
-        .read(pollProvider(PollStreamArgs(driverId: driverId, period: period)))
+        .read(dailyBoardProvider(DailyBoardArgs(
+          driverId: driverId,
+          period: period,
+          date: date,
+        )))
         .value;
 
     if (poll == null) {
-      throw StateError('Poll is not loaded.');
+      throw StateError('Daily board is not loaded.');
     }
 
     return poll;
