@@ -63,7 +63,6 @@ class DefaultFirebaseOptions {
     projectId: 'phrasal-alpha-407309',
     storageBucket: 'phrasal-alpha-407309.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyA6GbFNSbJngED3CUHGS2yHSqUm4zSaD_k',
     appId: '1:671801788510:ios:c4d0f8d1287cb63450cccf',

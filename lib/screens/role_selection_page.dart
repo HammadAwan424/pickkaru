@@ -1,33 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firebase_signup_service.dart';
 import '../models/enums.dart';
-import 'sign_in_page.dart';
 
-class SignUpPage extends StatefulWidget {
-  const SignUpPage({super.key});
+class RoleSelectionPage extends StatefulWidget {
+  const RoleSelectionPage({super.key});
 
   @override
-  State<SignUpPage> createState() => _SignUpPageState();
+  State<RoleSelectionPage> createState() => _RoleSelectionPageState();
 }
 
-class _SignUpPageState extends State<SignUpPage> {
+class _RoleSelectionPageState extends State<RoleSelectionPage> {
   roles _role = roles.student;
   bool _loading = false;
 
-  Future<void> _signUpWithGoogle() async {
+  Future<void> _handleCompleteSetup() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: No authenticated user found.')),
+      );
+      return;
+    }
+
     setState(() => _loading = true);
     try {
       final svc = FirebaseSignupService();
-      await svc.signInWithGoogle(_role);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Signed up with Google')),
-        );
-      }
+      await svc.createSignupFirestoreProfile(
+        uid: user.uid,
+        username: user.email?.split('@').first ?? user.uid,
+        displayName: user.displayName ?? '',
+        role: _role,
+      );
+      // Riverpod's stream listener in the router gate will automatically
+      // detect this new user record and route them to their homepage.
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sign up failed: $e')),
+          SnackBar(content: Text('Failed to complete setup: $e')),
         );
       }
     } finally {
@@ -41,12 +51,12 @@ class _SignUpPageState extends State<SignUpPage> {
       backgroundColor: const Color(0xFFF3F4F6), // Clean off-white background
       appBar: AppBar(
         title: const Text(
-          'Create Account',
+          'Role Selection',
           style: TextStyle(color: Color(0xFF1F2937), fontWeight: FontWeight.w800),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Color(0xFF1F2937)),
+        automaticallyImplyLeading: false, // Prevent going back since they must select a role
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -55,7 +65,7 @@ class _SignUpPageState extends State<SignUpPage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Text(
-                'Choose Your Role',
+                'Select Your Role',
                 style: TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.w800,
@@ -64,7 +74,7 @@ class _SignUpPageState extends State<SignUpPage> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Select student or driver. Your role is set permanently upon signup.',
+                'Identify yourself to configure your Pickkaru coordinates.',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey.shade600,
@@ -73,7 +83,7 @@ class _SignUpPageState extends State<SignUpPage> {
               ),
               const SizedBox(height: 36),
               
-              // Interactive Cards
+              // Selection Cards
               Row(
                 children: [
                   // Student Card
@@ -96,7 +106,7 @@ class _SignUpPageState extends State<SignUpPage> {
                     child: _RoleSelectionCard(
                       title: 'Driver',
                       description: 'I am driving students',
-                      icon: Icons.explore_rounded, // steering / path explore illustrative icon
+                      icon: Icons.explore_rounded, // steering/explore path illustrative icon
                       isSelected: _role == roles.driver,
                       activeColor: const Color(0xFF0D9488), // Teal Active accent
                       onTap: () {
@@ -108,7 +118,7 @@ class _SignUpPageState extends State<SignUpPage> {
               ),
               const SizedBox(height: 40),
               
-              // Action Card at Bottom
+              // Elevated Save Action Card
               Container(
                 padding: const EdgeInsets.all(28),
                 decoration: BoxDecoration(
@@ -128,86 +138,34 @@ class _SignUpPageState extends State<SignUpPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Premium Google Sign-Up Button
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: const Color(0xFF1F2937),
-                        elevation: 2,
-                        shadowColor: Colors.black.withValues(alpha: 0.1),
+                        backgroundColor: const Color(0xFF0D9488), // Teal Primary Accent
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30), // Highly rounded
-                          side: BorderSide(color: Colors.grey.shade300, width: 1.2),
                         ),
+                        elevation: 4,
+                        shadowColor: const Color(0xFF0D9488).withValues(alpha: 0.3),
                       ),
-                      onPressed: _loading ? null : _signUpWithGoogle,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (_loading)
-                            const SizedBox(
+                      onPressed: _loading ? null : _handleCompleteSetup,
+                      child: _loading
+                          ? const SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.black54),
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             )
-                          else ...[
-                            Image.network(
-                              'https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg',
-                              height: 20,
-                              width: 20,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Icon(
-                                  Icons.g_mobiledata,
-                                  size: 24,
-                                  color: Colors.red,
-                                );
-                              },
-                            ),
-                            const SizedBox(width: 12),
-                            const Text(
-                              'Sign up with Google',
+                          : const Text(
+                              'Complete Setup',
                               style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
                             ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    
-                    // Route to Sign In
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "Already have an account?",
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.of(context).pushReplacement(
-                              MaterialPageRoute(
-                                builder: (_) => const SignInPage(),
-                              ),
-                            );
-                          },
-                          child: const Text(
-                            'Sign In',
-                            style: TextStyle(
-                              color: Color(0xFF0D9488), // Primary Teal Accent
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
                     ),
                   ],
                 ),
@@ -258,14 +216,10 @@ class _RoleSelectionCardState extends State<_RoleSelectionCard> {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
           decoration: BoxDecoration(
-            color: widget.isSelected
-                ? Colors.white
-                : Colors.grey.shade100,
+            color: widget.isSelected ? Colors.white : Colors.grey.shade100,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: widget.isSelected
-                  ? widget.activeColor
-                  : Colors.grey.shade300,
+              color: widget.isSelected ? widget.activeColor : Colors.grey.shade300,
               width: widget.isSelected ? 2.5 : 1.2,
             ),
             boxShadow: widget.isSelected

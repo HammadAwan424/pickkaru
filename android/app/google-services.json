@@ -12,7 +12,28 @@
           "package_name": "com.app.pickkaru"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "671801788510-3jbpbcrsghhtqgsjd73vt06g047cr9qb.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.app.pickkaru",
+            "certificate_hash": "46a693505c7fcac2051534c3823b2d49ef307a8b"
+          }
+        },
+        {
+          "client_id": "671801788510-d792m4ihc27s65ge7ur3uvjd2mnubfm9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.app.pickkaru",
+            "certificate_hash": "23a1ad9dee50e7ea94ea08c66aa7912716bce0e1"
+          }
+        },
+        {
+          "client_id": "671801788510-rj50iiui27vt609n7qhg6vqkr3a0k0jp.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDtyzDvGjCJgv9YHi3jEjSQQhwzDnOYMB4"
@@ -20,7 +41,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "671801788510-rj50iiui27vt609n7qhg6vqkr3a0k0jp.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "671801788510-0j6uqcfjco1616k9talt7dlqoe0bhj6k.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.app.pickkaru"
+              }
+            }
+          ]
         }
       }
     }

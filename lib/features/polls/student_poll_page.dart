@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import '../../models/poll.dart';
 import '../../providers/auth_provider.dart';
@@ -427,8 +428,16 @@ class _StudentPollRowState extends ConsumerState<_StudentPollRow> {
       await action();
     } catch (error) {
       if (!mounted) return;
+      
+      String message = 'Could not save poll response: $error';
+      if (error is FirebaseException && (error.code == 'not-found' || error.code == 'NOT_FOUND')) {
+        message = "The driver hasn't started today's poll yet.";
+      } else if (error.toString().contains('not-found') || error.toString().contains('NOT_FOUND')) {
+        message = "The driver hasn't started today's poll yet.";
+      }
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not save poll response: $error')),
+        SnackBar(content: Text(message)),
       );
     } finally {
       if (mounted) setState(() => _isSaving = false);
