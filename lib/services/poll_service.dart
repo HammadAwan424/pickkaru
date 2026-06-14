@@ -70,6 +70,18 @@ class PollService {
     required String driverId,
     required PollPeriod period,
   }) async {
+    await _pollRef(driverId, period).update({
+      'status': PollStatus.active.firestoreValue,
+    });
+  }
+
+  Future<void> initializeDailyBoard({
+    required String driverId,
+    required PollPeriod period,
+    required DateTime date,
+  }) async {
+    final dateStr = _formatDate(date);
+    
     // 1. Fetch Roster defaults
     final rosterDoc = await _db.collection('rosters').doc(driverId).get();
     final rosterData = rosterDoc.data();
@@ -77,8 +89,6 @@ class PollService {
     final studentDefaults = <String, bool>{};
     final studentDefaultCheckpoints = <String, String?>{};
     final todayOverrides = <String, PrivateOverride>{};
-    
-    final todayStr = _formatDate(DateTime.now());
     
     if (rosterData != null && rosterData['students'] != null) {
       final studentsMap = Map<String, dynamic>.from(rosterData['students'] as Map);
@@ -99,7 +109,7 @@ class PollService {
             .collection('students')
             .doc(studentId)
             .collection('overrides')
-            .doc(todayStr)
+            .doc(dateStr)
             .get();
             
         if (overrideDoc.exists && overrideDoc.data() != null) {
@@ -112,16 +122,30 @@ class PollService {
     await initializeDailyPoll(
       driverId: driverId,
       period: period,
-      date: todayStr,
+      date: dateStr,
       studentDefaults: studentDefaults,
       studentDefaultCheckpoints: studentDefaultCheckpoints,
       todayOverrides: todayOverrides,
     );
+  }
 
-    // 4. Update status
-    await _pollRef(driverId, period).update({
-      'status': PollStatus.active.firestoreValue,
+  Future<void> updateStudentBoarded({
+    required String driverId,
+    required PollPeriod period,
+    required String studentId,
+    required DateTime date,
+    required bool boarded,
+  }) async {
+    final dateStr = _formatDate(date);
+    await _responsesRef(driverId, period, dateStr).update({
+      'responses.$studentId.boarded': boarded,
+      'responses.$studentId.updatedAt': FieldValue.serverTimestamp(),
     });
+    if (boarded) {
+      await _responsesRef(driverId, period, dateStr).update({
+        'approachingStudentIds': FieldValue.arrayRemove([studentId]),
+      });
+    }
   }
 
   Future<void> completeRide({
@@ -168,10 +192,7 @@ class PollService {
       'responses.$studentId.updatedAt': FieldValue.serverTimestamp(),
     };
 
-    await _responsesRef(driverId, period, dateStr).set(
-      updates,
-      SetOptions(merge: true),
-    );
+    await _responsesRef(driverId, period, dateStr).update(updates);
   }
 
   Future<void> setStudentBoarded({

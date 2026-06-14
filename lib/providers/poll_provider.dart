@@ -169,6 +169,34 @@ class PollActions {
         );
   }
 
+  Future<void> initializeDailyBoard({
+    required String driverId,
+    required PollPeriod period,
+    required DateTime date,
+  }) {
+    return _ref.read(pollServiceProvider).initializeDailyBoard(
+          driverId: driverId,
+          period: period,
+          date: date,
+        );
+  }
+
+  Future<void> updateStudentBoarded({
+    required String driverId,
+    required PollPeriod period,
+    required String studentId,
+    required DateTime date,
+    required bool boarded,
+  }) {
+    return _ref.read(pollServiceProvider).updateStudentBoarded(
+          driverId: driverId,
+          period: period,
+          studentId: studentId,
+          date: date,
+          boarded: boarded,
+        );
+  }
+
   Future<void> updateStudentResponse({
     required String driverId,
     required PollPeriod period,
