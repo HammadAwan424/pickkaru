@@ -151,10 +151,33 @@ class PollService {
   Future<void> completeRide({
     required String driverId,
     required PollPeriod period,
+    required DateTime date,
   }) async {
     await _pollRef(driverId, period).update({
       'status': PollStatus.completed.firestoreValue,
     });
+
+    if (period == PollPeriod.evening) {
+      final tomorrow = date.add(const Duration(days: 1));
+      try {
+        await initializeDailyBoard(
+          driverId: driverId,
+          period: PollPeriod.morning,
+          date: tomorrow,
+        );
+      } catch (e) {
+        // Handle gracefully if roster or overrides does not exist
+      }
+      try {
+        await initializeDailyBoard(
+          driverId: driverId,
+          period: PollPeriod.evening,
+          date: tomorrow,
+        );
+      } catch (e) {
+        // Handle gracefully
+      }
+    }
   }
 
   // ── Shared Daily Board: polls/{id}/responses/{date} ──
@@ -229,35 +252,47 @@ class PollService {
     required String studentId,
     required DateTime date,
     bool? morningAnswer,
+    bool updateMorning = false,
     bool? eveningAnswer,
-    String? eveningCheckpoint,
+    bool updateEvening = false,
   }) async {
     final dateStr = _formatDate(date);
     final overrideRef =
         _db.collection('students').doc(studentId).collection('overrides').doc(dateStr);
 
     final existingSnap = await overrideRef.get();
-    if (!existingSnap.exists && morningAnswer == null && eveningAnswer == null) {
+    final hasMorning = existingSnap.exists && (existingSnap.data()?.containsKey('morning') ?? false);
+    final hasEvening = existingSnap.exists && (existingSnap.data()?.containsKey('evening') ?? false);
+
+    final willHaveMorning = updateMorning ? (morningAnswer != null) : hasMorning;
+    final willHaveEvening = updateEvening ? (eveningAnswer != null) : hasEvening;
+
+    if (!willHaveMorning && !willHaveEvening) {
+      if (existingSnap.exists) {
+        await overrideRef.delete();
+      }
       return;
     }
 
     final data = <String, dynamic>{};
-    if (morningAnswer != null) {
-      data['morning'] = {'answer': morningAnswer};
+    if (updateMorning) {
+      if (morningAnswer == null) {
+        data['morning'] = FieldValue.delete();
+      } else {
+        data['morning'] = {'answer': morningAnswer};
+      }
     }
-    if (eveningAnswer != null || eveningCheckpoint != null) {
-      data['evening'] = {
-        if (eveningAnswer != null) 'answer': eveningAnswer,
-        if (eveningCheckpoint != null) 'checkpoint': eveningCheckpoint,
-      };
+    if (updateEvening) {
+      if (eveningAnswer == null) {
+        data['evening'] = FieldValue.delete();
+      } else {
+        data['evening'] = {'answer': eveningAnswer};
+      }
     }
 
-    if (data.isEmpty) {
-      await overrideRef.delete();
-      return;
+    if (data.isNotEmpty) {
+      await overrideRef.set(data, SetOptions(merge: true));
     }
-
-    await overrideRef.set(data, SetOptions(merge: true));
   }
 
   Future<void> deleteFutureOverride({

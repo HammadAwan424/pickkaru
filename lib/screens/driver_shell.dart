@@ -83,19 +83,64 @@ class _DriverPollPageState extends State<DriverPollPage> {
               );
             }
 
-            final today = DateTime.now();
+            final activeDateAsync = ref.watch(activeDateProvider(user.uid));
+            final driverPollsAsync = ref.watch(driverPollsProvider(user.uid));
+
+            final polls = driverPollsAsync.valueOrNull;
+            final isMorningActive = polls?.morning.status == PollStatus.active;
+            final isEveningActive = polls?.evening.status == PollStatus.active;
+
+            final currentPeriod = isMorningActive
+                ? PollPeriod.morning
+                : (isEveningActive ? PollPeriod.evening : _selectedPeriod);
+
+            final activeDate = activeDateAsync.valueOrNull ?? DateTime.now();
+            final today = DateTime(activeDate.year, activeDate.month, activeDate.day);
+
             final dailyBoardAsync = ref.watch(dailyBoardProvider(DailyBoardArgs(
               driverId: user.uid,
-              period: _selectedPeriod,
+              period: currentPeriod,
               date: today,
             )));
 
             final parentPollAsync = ref.watch(pollProvider(PollStreamArgs(
               driverId: user.uid,
-              period: _selectedPeriod,
+              period: currentPeriod,
             )));
 
             final rosterAsync = ref.watch(rosterProvider(user.uid));
+
+            if (parentPollAsync.hasError) {
+              return Scaffold(
+                backgroundColor: const Color(0xFFF3F4F6),
+                body: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Text(
+                      'Error loading poll config: ${parentPollAsync.error}',
+                      style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            if (rosterAsync.hasError) {
+              return Scaffold(
+                backgroundColor: const Color(0xFFF3F4F6),
+                body: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Text(
+                      'Error loading roster: ${rosterAsync.error}',
+                      style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              );
+            }
 
             return Scaffold(
               backgroundColor: const Color(0xFFF3F4F6),
@@ -136,6 +181,15 @@ class _DriverPollPageState extends State<DriverPollPage> {
                                             letterSpacing: -0.5,
                                           ),
                                         ),
+                                        const SizedBox(height: 4),
+                                        SelectableText(
+                                          'Driver ID: ${user.uid}',
+                                          style: const TextStyle(
+                                            color: Color(0xFF0D9488),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
                                       ],
                                     ),
                                     // Soft, premium sign out icon button
@@ -164,7 +218,8 @@ class _DriverPollPageState extends State<DriverPollPage> {
                                       Expanded(
                                         child: _PeriodTabButton(
                                           title: 'Morning Ride',
-                                          isSelected: _selectedPeriod == PollPeriod.morning,
+                                          isSelected: currentPeriod == PollPeriod.morning,
+                                          isDisabled: isEveningActive,
                                           onTap: () {
                                             setState(() {
                                               _selectedPeriod = PollPeriod.morning;
@@ -175,7 +230,8 @@ class _DriverPollPageState extends State<DriverPollPage> {
                                       Expanded(
                                         child: _PeriodTabButton(
                                           title: 'Evening Ride',
-                                          isSelected: _selectedPeriod == PollPeriod.evening,
+                                          isSelected: currentPeriod == PollPeriod.evening,
+                                          isDisabled: isMorningActive,
                                           onTap: () {
                                             setState(() {
                                               _selectedPeriod = PollPeriod.evening;
@@ -400,9 +456,10 @@ class _DriverPollPageState extends State<DriverPollPage> {
                                         studentId: studentId,
                                         displayName: displayName,
                                         response: response,
-                                        period: _selectedPeriod,
+                                        period: currentPeriod,
                                         driverId: user.uid,
                                         date: today,
+                                        isLocked: status == PollStatus.completed,
                                       );
                                     }),
                                 ]),
@@ -443,31 +500,44 @@ class _DriverPollPageState extends State<DriverPollPage> {
 class _PeriodTabButton extends StatelessWidget {
   final String title;
   final bool isSelected;
+  final bool isDisabled;
   final VoidCallback onTap;
 
   const _PeriodTabButton({
     required this.title,
     required this.isSelected,
+    this.isDisabled = false,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    Color textColor;
+    if (isSelected) {
+      textColor = Colors.white;
+    } else if (isDisabled) {
+      textColor = Colors.grey.shade400;
+    } else {
+      textColor = const Color(0xFF4B5563);
+    }
+
     return GestureDetector(
-      onTap: onTap,
+      onTap: isDisabled ? null : onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeInOut,
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF0D9488) : Colors.transparent,
+          color: isSelected
+              ? (isDisabled ? Colors.grey.shade300 : const Color(0xFF0D9488))
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(24),
         ),
         alignment: Alignment.center,
         child: Text(
           title,
           style: TextStyle(
-            color: isSelected ? Colors.white : const Color(0xFF4B5563),
+            color: textColor,
             fontSize: 14,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
           ),
@@ -763,6 +833,7 @@ class _StudentRosterCard extends ConsumerWidget {
   final PollPeriod period;
   final String driverId;
   final DateTime date;
+  final bool isLocked;
 
   const _StudentRosterCard({
     required this.studentId,
@@ -771,6 +842,7 @@ class _StudentRosterCard extends ConsumerWidget {
     required this.period,
     required this.driverId,
     required this.date,
+    this.isLocked = false,
   });
 
   @override
@@ -889,15 +961,18 @@ class _StudentRosterCard extends ConsumerWidget {
           if (response.answer != false) ...[
             _BoardToggleButton(
               isBoarded: response.boarded,
-              onChanged: (newValue) {
-                ref.read(pollActionsProvider).updateStudentBoarded(
-                      driverId: driverId,
-                      period: period,
-                      studentId: studentId,
-                      date: date,
-                      boarded: newValue,
-                    );
-              },
+              isDisabled: isLocked,
+              onChanged: isLocked
+                  ? (val) {}
+                  : (newValue) {
+                      ref.read(pollActionsProvider).updateStudentBoarded(
+                            driverId: driverId,
+                            period: period,
+                            studentId: studentId,
+                            date: date,
+                            boarded: newValue,
+                          );
+                    },
             ),
           ] else
             // Explicitly show X / Disabled state for Non-riders
@@ -910,26 +985,31 @@ class _StudentRosterCard extends ConsumerWidget {
 
 class _BoardToggleButton extends StatelessWidget {
   final bool isBoarded;
+  final bool isDisabled;
   final ValueChanged<bool> onChanged;
 
   const _BoardToggleButton({
     required this.isBoarded,
+    this.isDisabled = false,
     required this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
+    final activeColor = isDisabled ? Colors.grey.shade400 : const Color(0xFF0D9488);
     return GestureDetector(
-      onTap: () => onChanged(!isBoarded),
+      onTap: isDisabled ? null : () => onChanged(!isBoarded),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeInOut,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isBoarded ? const Color(0xFF0D9488) : Colors.white,
+          color: isBoarded
+              ? activeColor
+              : (isDisabled ? Colors.grey.shade100 : Colors.white),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isBoarded ? const Color(0xFF0D9488) : const Color(0xFF0D9488),
+            color: activeColor,
             width: 1.5,
           ),
         ),
@@ -939,13 +1019,13 @@ class _BoardToggleButton extends StatelessWidget {
             Icon(
               isBoarded ? Icons.check_circle_rounded : Icons.circle_outlined,
               size: 16,
-              color: isBoarded ? Colors.white : const Color(0xFF0D9488),
+              color: isBoarded ? Colors.white : activeColor,
             ),
             const SizedBox(width: 6),
             Text(
               isBoarded ? 'Boarded' : 'Board',
               style: TextStyle(
-                color: isBoarded ? Colors.white : const Color(0xFF0D9488),
+                color: isBoarded ? Colors.white : activeColor,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
@@ -1075,10 +1155,42 @@ class _BottomActionBar extends ConsumerWidget {
                 flex: 2,
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    ref.read(pollActionsProvider).completeRide(
-                          driverId: driverId,
-                          period: period,
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: const Text('End Ride'),
+                          content: const Text('Are you sure you want to end this ride?'),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                            ),
+                            ElevatedButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                                ref.read(pollActionsProvider).completeRide(
+                                      driverId: driverId,
+                                      period: period,
+                                      date: date,
+                                    );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.redAccent,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text('End Ride'),
+                            ),
+                          ],
                         );
+                      },
+                    );
                   },
                   icon: const Icon(Icons.stop_rounded),
                   label: const Text('End Route'),
@@ -1112,24 +1224,22 @@ class _BottomActionBar extends ConsumerWidget {
                 ),
               ),
             ] else if (status == PollStatus.completed)
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    ref.read(pollActionsProvider).startRide(
-                          driverId: driverId,
-                          period: period,
-                        );
-                  },
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Restart Route'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF0D9488),
-                    side: const BorderSide(color: Color(0xFF0D9488), width: 1.5),
-                    minimumSize: const Size.fromHeight(52),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              const Expanded(
+                child: Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.check_circle_rounded, color: Color(0xFFF97316)),
+                      SizedBox(width: 8),
+                      Text(
+                        'Route Completed & Locked',
+                        style: TextStyle(
+                          color: Color(0xFFF97316),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

@@ -15,17 +15,32 @@ class StudentPlanningPage extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<StudentPlanningPage> createState() =>
-      _StudentPlanningPageState();
+  ConsumerState<StudentPlanningPage> createState() => _StudentPlanningPageState();
 }
 
 class _StudentPlanningPageState extends ConsumerState<StudentPlanningPage> {
+  PollPeriod _selectedPeriod = PollPeriod.morning;
   late DateTime _weekStart;
 
   @override
   void initState() {
     super.initState();
-    _weekStart = DateTime.now();
+    final now = DateTime.now();
+    // Normalize tomorrow to midnight so that the start date is stable
+    _weekStart = DateTime(now.year, now.month, now.day).add(const Duration(days: 1));
+  }
+
+  String _formatWeekday(DateTime date) {
+    final weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    return weekdays[date.weekday - 1];
+  }
+
+  String _formatDateString(DateTime date) {
+    final months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return '${months[date.month - 1]} ${date.day}';
   }
 
   @override
@@ -40,201 +55,302 @@ class _StudentPlanningPageState extends ConsumerState<StudentPlanningPage> {
     );
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F6),
       appBar: AppBar(
-        title: const Text('Plan ahead'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: const Text(
+          'Ride Planning',
+          style: TextStyle(
+            color: Color(0xFF1F2937),
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        iconTheme: const IconThemeData(color: Color(0xFF1F2937)),
       ),
-      body: overrideWeekAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (overrides) {
-          final overrideMap = {
-            for (final entry in overrides) _dateKey(entry.key): entry.value,
-          };
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Period Toggle Selector (Matches Driver Command Center tab switcher)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE5E7EB),
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _PeriodTabButton(
+                        title: 'Morning Ride',
+                        isSelected: _selectedPeriod == PollPeriod.morning,
+                        onTap: () {
+                          setState(() {
+                            _selectedPeriod = PollPeriod.morning;
+                          });
+                        },
+                      ),
+                    ),
+                    Expanded(
+                      child: _PeriodTabButton(
+                        title: 'Evening Ride',
+                        isSelected: _selectedPeriod == PollPeriod.evening,
+                        onTap: () {
+                          setState(() {
+                            _selectedPeriod = PollPeriod.evening;
+                          });
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: 7,
-            separatorBuilder: (_, __) => const Divider(),
-            itemBuilder: (context, index) {
-              final date = _weekStart.add(Duration(days: index));
-              final dateKey = _dateKey(date);
-              final ov = overrideMap[dateKey];
-              final isToday = dateKey == _dateKey(DateTime.now());
+            // Schedule Info Banner
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '7-Day Commute Schedule',
+                  style: TextStyle(
+                    color: Colors.grey.shade500,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
 
-              return _DayPlanningRow(
-                date: date,
-                isToday: isToday,
-                overrideValue: ov,
-                onMorningChanged: (value) =>
-                    _saveOverride(date, morningAnswer: value),
-                onEveningChanged: (value) =>
-                    _saveOverride(date, eveningAnswer: value),
-              );
-            },
-          );
-        },
+            // Overrides Weekly List
+            Expanded(
+              child: overrideWeekAsync.when(
+                loading: () => const Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0D9488)),
+                  ),
+                ),
+                error: (err, _) => Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Text(
+                      'Error loading overrides: $err',
+                      style: const TextStyle(color: Colors.red),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+                data: (overrides) {
+                  // Map list of entries to a calendar date string map for quick lookup
+                  final overrideMap = {
+                    for (final entry in overrides) _formatDateKey(entry.key): entry.value,
+                  };
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    itemCount: 7,
+                    itemBuilder: (context, index) {
+                      final date = _weekStart.add(Duration(days: index));
+                      final dateKey = _formatDateKey(date);
+                      final privateOverride = overrideMap[dateKey];
+
+                      return _OverrideDayCard(
+                        date: date,
+                        weekdayName: _formatWeekday(date),
+                        dateString: _formatDateString(date),
+                        overrideValue: privateOverride,
+                        period: _selectedPeriod,
+                        studentId: widget.studentId,
+                        onChanged: (newVal) async {
+                          final isMorning = _selectedPeriod == PollPeriod.morning;
+                          await ref.read(pollActionsProvider).updateFutureOverride(
+                                studentId: widget.studentId,
+                                date: date,
+                                morningAnswer: isMorning ? newVal : null,
+                                updateMorning: isMorning,
+                                eveningAnswer: !isMorning ? newVal : null,
+                                updateEvening: !isMorning,
+                              );
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Future<void> _saveOverride(
-    DateTime date, {
-    bool? morningAnswer,
-    bool? eveningAnswer,
-  }) async {
-    await ref.read(pollActionsProvider).updateFutureOverride(
-          studentId: widget.studentId,
-          date: date,
-          morningAnswer: morningAnswer,
-          eveningAnswer: eveningAnswer,
-        );
-  }
-
-  String _dateKey(DateTime date) {
+  String _formatDateKey(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 }
 
-enum _OverrideOption { yes, no, default_ }
+class _PeriodTabButton extends StatelessWidget {
+  final String title;
+  final bool isSelected;
+  final VoidCallback onTap;
 
-class _DayPlanningRow extends StatelessWidget {
-  final DateTime date;
-  final bool isToday;
-  final PrivateOverride? overrideValue;
-  final ValueChanged<bool?> onMorningChanged;
-  final ValueChanged<bool?> onEveningChanged;
-
-  const _DayPlanningRow({
-    required this.date,
-    required this.isToday,
-    required this.overrideValue,
-    required this.onMorningChanged,
-    required this.onEveningChanged,
+  const _PeriodTabButton({
+    required this.title,
+    required this.isSelected,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final dayName = _dayName(date.weekday);
-    final dayNum = date.day.toString();
-    final monthName = _monthName(date.month);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 80,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isToday ? 'Today' : dayName,
-                  style: TextStyle(
-                    fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
-                    fontSize: 14,
-                  ),
-                ),
-                Text(
-                  '$monthName $dayNum',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF0D9488) : Colors.transparent,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          title,
+          style: TextStyle(
+            color: isSelected ? Colors.white : const Color(0xFF4B5563),
+            fontSize: 14,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
           ),
-          Expanded(
-            child: _PeriodDropdown(
-              label: 'Morning',
-              value: overrideValue?.morningAnswer,
-              onChanged: onMorningChanged,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _PeriodDropdown(
-              label: 'Evening',
-              value: overrideValue?.eveningAnswer,
-              onChanged: onEveningChanged,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
-
-  String _dayName(int weekday) {
-    const names = [
-      'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'
-    ];
-    return names[weekday - 1];
-  }
-
-  String _monthName(int month) {
-    const names = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    return names[month - 1];
-  }
 }
 
-class _PeriodDropdown extends StatelessWidget {
-  final String label;
-  final bool? value;
+class _OverrideDayCard extends StatelessWidget {
+  final DateTime date;
+  final String weekdayName;
+  final String dateString;
+  final PrivateOverride? overrideValue;
+  final PollPeriod period;
+  final String studentId;
   final ValueChanged<bool?> onChanged;
 
-  const _PeriodDropdown({
-    required this.label,
-    required this.value,
+  const _OverrideDayCard({
+    required this.date,
+    required this.weekdayName,
+    required this.dateString,
+    required this.overrideValue,
+    required this.period,
+    required this.studentId,
     required this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    _OverrideOption selected;
-    if (value == true) {
-      selected = _OverrideOption.yes;
-    } else if (value == false) {
-      selected = _OverrideOption.no;
-    } else {
-      selected = _OverrideOption.default_;
-    }
+    final bool? answer = period == PollPeriod.morning
+        ? overrideValue?.morningAnswer
+        : overrideValue?.eveningAnswer;
 
-    return DropdownButtonFormField<_OverrideOption>(
-      initialValue: selected,
-      decoration: InputDecoration(
-        labelText: label,
-        border: const OutlineInputBorder(),
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    final activeBorderColor = answer != null ? const Color(0xFF0D9488) : Colors.grey.shade200;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: activeBorderColor,
+          width: answer != null ? 1.5 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      items: const [
-        DropdownMenuItem(
-          value: _OverrideOption.default_,
-          child: Text('Default'),
-        ),
-        DropdownMenuItem(
-          value: _OverrideOption.yes,
-          child: Text('Yes'),
-        ),
-        DropdownMenuItem(
-          value: _OverrideOption.no,
-          child: Text('No'),
-        ),
-      ],
-      onChanged: (value) {
-        if (value == null) return;
-        switch (value) {
-          case _OverrideOption.yes:
-            onChanged(true);
-          case _OverrideOption.no:
-            onChanged(false);
-          case _OverrideOption.default_:
-            onChanged(null);
-        }
-      },
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Date details
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                weekdayName,
+                style: const TextStyle(
+                  color: Color(0xFF1F2937),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                dateString,
+                style: TextStyle(
+                  color: Colors.grey.shade500,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+
+          // Custom styled dropdown selection
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF9FAFB),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<bool?>(
+                value: answer,
+                icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF0D9488)),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+                dropdownColor: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                onChanged: onChanged,
+                items: [
+                  DropdownMenuItem<bool?>(
+                    value: null,
+                    child: Text(
+                      'Default',
+                      style: TextStyle(color: Colors.grey.shade500),
+                    ),
+                  ),
+                  const DropdownMenuItem<bool?>(
+                    value: true,
+                    child: Text(
+                      'Yes',
+                      style: TextStyle(color: Color(0xFF0D9488)),
+                    ),
+                  ),
+                  DropdownMenuItem<bool?>(
+                    value: false,
+                    child: Text(
+                      'No',
+                      style: TextStyle(color: Colors.grey.shade700),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

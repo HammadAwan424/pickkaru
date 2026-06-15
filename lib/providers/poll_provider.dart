@@ -61,11 +61,19 @@ class DailyBoardArgs {
     return other is DailyBoardArgs &&
         other.driverId == driverId &&
         other.period == period &&
-        other.date == date;
+        other.date.year == date.year &&
+        other.date.month == date.month &&
+        other.date.day == date.day;
   }
 
   @override
-  int get hashCode => Object.hash(driverId, period, date);
+  int get hashCode => Object.hash(
+        driverId,
+        period,
+        date.year,
+        date.month,
+        date.day,
+      );
 }
 
 final dailyBoardProvider =
@@ -75,6 +83,21 @@ final dailyBoardProvider =
         period: args.period,
         date: args.date,
       );
+});
+
+final activeDateProvider = StreamProvider.family<DateTime, String>((ref, driverId) {
+  return ref.watch(driverPollsProvider(driverId)).when(
+    loading: () => Stream.value(DateTime.now()),
+    error: (_, __) => Stream.value(DateTime.now()),
+    data: (polls) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      if (polls.evening.status == PollStatus.completed) {
+        return Stream.value(today.add(const Duration(days: 1)));
+      }
+      return Stream.value(today);
+    },
+  );
 });
 
 // ── Override Providers ──
@@ -162,10 +185,12 @@ class PollActions {
   Future<void> completeRide({
     required String driverId,
     required PollPeriod period,
+    required DateTime date,
   }) {
     return _ref.read(pollServiceProvider).completeRide(
           driverId: driverId,
           period: period,
+          date: date,
         );
   }
 
@@ -274,15 +299,17 @@ class PollActions {
     required String studentId,
     required DateTime date,
     bool? morningAnswer,
+    bool updateMorning = false,
     bool? eveningAnswer,
-    String? eveningCheckpoint,
+    bool updateEvening = false,
   }) {
     return _ref.read(pollServiceProvider).updateFutureOverride(
           studentId: studentId,
           date: date,
           morningAnswer: morningAnswer,
+          updateMorning: updateMorning,
           eveningAnswer: eveningAnswer,
-          eveningCheckpoint: eveningCheckpoint,
+          updateEvening: updateEvening,
         );
   }
 

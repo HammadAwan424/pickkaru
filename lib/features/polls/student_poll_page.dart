@@ -62,109 +62,160 @@ class _StudentPollPageState extends ConsumerState<StudentPollPage> {
               );
             }
 
+            final activeDateAsync = ref.watch(activeDateProvider(driverId));
             final driverAsync = ref.watch(driverProvider(driverId));
             final pollsAsync = ref.watch(driverPollsProvider(driverId));
 
-            return _PollScaffold(
-              title: 'Route poll',
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.calendar_month_outlined),
-                  tooltip: 'Plan ahead',
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => StudentPlanningPage(
-                          studentId: user.uid,
-                          driverId: driverId,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                Padding(
-                  padding: const EdgeInsetsDirectional.only(end: 16),
-                  child: _PeriodSwitcher(
-                    period: _period,
-                    onChanged: _showPeriod,
-                  ),
-                ),
-              ],
-              child: driverAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, _) => _ErrorState(
-                  message: 'Could not load your driver route: $error',
-                ),
-                data: (driver) {
-                  if (driver == null) {
-                    return const _EmptyState(
-                        message: 'Driver route was not found.');
-                  }
+            return activeDateAsync.when(
+              loading: () => const _PollScaffold(
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (error, _) => _PollScaffold(
+                child: _ErrorState(message: 'Could not load active date: $error'),
+              ),
+              data: (activeDate) {
+                final morningDailyBoardAsync = ref.watch(dailyBoardProvider(DailyBoardArgs(
+                  driverId: driverId,
+                  period: PollPeriod.morning,
+                  date: activeDate,
+                )));
 
-                  return pollsAsync.when(
-                    loading: () =>
-                        const Center(child: CircularProgressIndicator()),
-                    error: (error, _) => _ErrorState(
-                      message: 'Could not load today\'s polls: $error',
-                    ),
-                    data: (polls) {
-                      final poll = _period == PollPeriod.morning
-                          ? polls.morning
-                          : polls.evening;
+                final eveningDailyBoardAsync = ref.watch(dailyBoardProvider(DailyBoardArgs(
+                  driverId: driverId,
+                  period: PollPeriod.evening,
+                  date: activeDate,
+                )));
 
-                      final rosterAsync = ref.watch(rosterProvider(driverId));
-                      final roster = rosterAsync.valueOrNull?.students.map(
-                            (studentId, entry) => MapEntry(
-                              studentId,
-                              _PublicStudent(
-                                displayName: entry.displayName,
-                              ),
-                            ),
-                          ) ?? <String, _PublicStudent>{};
-
-                      return Column(
-                        children: [
-                          if (poll.status == PollStatus.active)
-                            _RideStatusBanner(
+                return _PollScaffold(
+                  title: 'Route poll',
+                  actions: [
+                    IconButton(
+                      icon: const Icon(Icons.calendar_month_outlined),
+                      tooltip: 'Plan ahead',
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => StudentPlanningPage(
+                              studentId: user.uid,
                               driverId: driverId,
-                              period: _period,
-                            ),
-                          Expanded(
-                            child: PageView(
-                              controller: _pageController,
-                              onPageChanged: (index) {
-                                setState(() {
-                                  _period = PollPeriod.values[index];
-                                });
-                              },
-                              children: [
-                                _PollPeriodView(
-                                  driverId: driverId,
-                                  currentStudentId: user.uid,
-                                  currentDisplayName: user.displayName,
-                                  assignedStudentIds: driver.assignedStudents,
-                                  roster: roster,
-                                  period: PollPeriod.morning,
-                                  poll: polls.morning,
-                                ),
-                                _PollPeriodView(
-                                  driverId: driverId,
-                                  currentStudentId: user.uid,
-                                  currentDisplayName: user.displayName,
-                                  assignedStudentIds: driver.assignedStudents,
-                                  roster: roster,
-                                  period: PollPeriod.evening,
-                                  poll: polls.evening,
-                                ),
-                              ],
                             ),
                           ),
-                        ],
+                        );
+                      },
+                    ),
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(end: 16),
+                      child: _PeriodSwitcher(
+                        period: _period,
+                        onChanged: _showPeriod,
+                      ),
+                    ),
+                  ],
+                  child: driverAsync.when(
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (error, _) => _ErrorState(
+                      message: 'Could not load your driver route: $error',
+                    ),
+                    data: (driver) {
+                      if (driver == null) {
+                        return const _EmptyState(
+                            message: 'Driver route was not found.');
+                      }
+
+                      return pollsAsync.when(
+                        loading: () =>
+                            const Center(child: CircularProgressIndicator()),
+                        error: (error, _) => _ErrorState(
+                          message: 'Could not load today\'s polls: $error',
+                        ),
+                        data: (polls) {
+                          return morningDailyBoardAsync.when(
+                            loading: () =>
+                                const Center(child: CircularProgressIndicator()),
+                            error: (error, _) => _ErrorState(
+                              message: 'Error loading morning ride board: $error',
+                            ),
+                            data: (morningDailyBoard) {
+                              return eveningDailyBoardAsync.when(
+                                loading: () =>
+                                    const Center(child: CircularProgressIndicator()),
+                                error: (error, _) => _ErrorState(
+                                  message: 'Error loading evening ride board: $error',
+                                ),
+                                data: (eveningDailyBoard) {
+                                  final poll = _period == PollPeriod.morning
+                                      ? polls.morning
+                                      : polls.evening;
+
+                                  final currentDailyBoard = _period == PollPeriod.morning
+                                      ? morningDailyBoard
+                                      : eveningDailyBoard;
+
+                                  final rosterAsync = ref.watch(rosterProvider(driverId));
+                                  final roster = rosterAsync.valueOrNull?.students.map(
+                                        (studentId, entry) => MapEntry(
+                                          studentId,
+                                          _PublicStudent(
+                                            displayName: entry.displayName,
+                                          ),
+                                        ),
+                                      ) ?? <String, _PublicStudent>{};
+
+                                  return Column(
+                                    children: [
+                                      if (poll.status == PollStatus.active && currentDailyBoard != null)
+                                        _RideStatusBanner(
+                                          driverId: driverId,
+                                          period: _period,
+                                        ),
+                                      Expanded(
+                                        child: PageView(
+                                          controller: _pageController,
+                                          onPageChanged: (index) {
+                                            setState(() {
+                                              _period = PollPeriod.values[index];
+                                            });
+                                          },
+                                          children: [
+                                            _PollPeriodView(
+                                              driverId: driverId,
+                                              currentStudentId: user.uid,
+                                              currentDisplayName: user.displayName,
+                                              assignedStudentIds: driver.assignedStudents,
+                                              roster: roster,
+                                              period: PollPeriod.morning,
+                                              dailyBoard: morningDailyBoard,
+                                              checkpoints: polls.morning.checkpoints ?? const [],
+                                              targetDate: activeDate,
+                                              isLocked: polls.morning.status == PollStatus.completed,
+                                            ),
+                                            _PollPeriodView(
+                                              driverId: driverId,
+                                              currentStudentId: user.uid,
+                                              currentDisplayName: user.displayName,
+                                              assignedStudentIds: driver.assignedStudents,
+                                              roster: roster,
+                                              period: PollPeriod.evening,
+                                              dailyBoard: eveningDailyBoard,
+                                              checkpoints: polls.evening.checkpoints ?? const [],
+                                              targetDate: activeDate,
+                                              isLocked: polls.evening.status == PollStatus.completed,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                            },
+                          );
+                        },
                       );
                     },
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             );
           },
         );
@@ -241,7 +292,10 @@ class _PollPeriodView extends ConsumerWidget {
     required this.assignedStudentIds,
     required this.roster,
     required this.period,
-    required this.poll,
+    required this.dailyBoard,
+    required this.checkpoints,
+    required this.targetDate,
+    required this.isLocked,
   });
 
   final String driverId;
@@ -250,10 +304,19 @@ class _PollPeriodView extends ConsumerWidget {
   final List<String> assignedStudentIds;
   final Map<String, _PublicStudent> roster;
   final PollPeriod period;
-  final Poll poll;
+  final Poll? dailyBoard;
+  final List<String> checkpoints;
+  final DateTime targetDate;
+  final bool isLocked;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (dailyBoard == null) {
+      return _EmptyState(
+        message: "The driver has not initialized the ${period == PollPeriod.morning ? 'morning' : 'evening'} ride yet.",
+      );
+    }
+
     if (assignedStudentIds.isEmpty) {
       return const _EmptyState(
           message: 'No students are assigned to this route.');
@@ -263,7 +326,7 @@ class _PollPeriodView extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       itemBuilder: (context, index) {
         final studentId = assignedStudentIds[index];
-        final response = poll.responses[studentId];
+        final response = dailyBoard!.responses[studentId];
         final publicStudent = roster[studentId] ??
             _PublicStudent(
               displayName:
@@ -276,9 +339,11 @@ class _PollPeriodView extends ConsumerWidget {
           isCurrentStudent: studentId == currentStudentId,
           publicStudent: publicStudent,
           period: period,
-          checkpoints: poll.checkpoints ?? const [],
+          checkpoints: checkpoints,
           response: response,
-          isApproaching: poll.approachingStudentIds.contains(studentId),
+          isApproaching: dailyBoard!.approachingStudentIds.contains(studentId),
+          targetDate: targetDate,
+          isLocked: isLocked,
         );
       },
       separatorBuilder: (_, __) => const SizedBox(height: 10),
@@ -297,6 +362,8 @@ class _StudentPollRow extends ConsumerStatefulWidget {
     required this.checkpoints,
     required this.response,
     required this.isApproaching,
+    required this.targetDate,
+    required this.isLocked,
   });
 
   final String driverId;
@@ -307,6 +374,8 @@ class _StudentPollRow extends ConsumerStatefulWidget {
   final List<String> checkpoints;
   final PollResponse? response;
   final bool isApproaching;
+  final DateTime targetDate;
+  final bool isLocked;
 
   @override
   ConsumerState<_StudentPollRow> createState() => _StudentPollRowState();
@@ -314,8 +383,6 @@ class _StudentPollRow extends ConsumerStatefulWidget {
 
 class _StudentPollRowState extends ConsumerState<_StudentPollRow> {
   bool _isSaving = false;
-
-  DateTime get _today => DateTime.now();
 
   @override
   Widget build(BuildContext context) {
@@ -357,7 +424,6 @@ class _StudentPollRowState extends ConsumerState<_StudentPollRow> {
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-
                     ],
                   ),
                 ),
@@ -377,13 +443,14 @@ class _StudentPollRowState extends ConsumerState<_StudentPollRow> {
                 checkpoints: widget.checkpoints,
                 checkpoint: response?.checkpoint,
                 isSaving: _isSaving,
+                isLocked: widget.isLocked,
                 canMarkBoarded: response != null,
                 onAnswerChanged: (answer) => _save(
                   () => ref.read(pollActionsProvider).updateStudentResponse(
                         driverId: widget.driverId,
                         period: widget.period,
                         studentId: widget.studentId,
-                        date: _today,
+                        date: widget.targetDate,
                         answer: answer,
                       ),
                 ),
@@ -395,7 +462,7 @@ class _StudentPollRowState extends ConsumerState<_StudentPollRow> {
                                   driverId: widget.driverId,
                                   period: widget.period,
                                   studentId: widget.studentId,
-                                  date: _today,
+                                  date: widget.targetDate,
                                   updateAnswer: false,
                                   checkpoint: checkpoint,
                                   updateCheckpoint: true,
@@ -410,7 +477,7 @@ class _StudentPollRowState extends ConsumerState<_StudentPollRow> {
                                     driverId: widget.driverId,
                                     period: widget.period,
                                     studentId: widget.studentId,
-                                    date: _today,
+                                    date: widget.targetDate,
                                   ),
                         ),
               ),
@@ -453,6 +520,7 @@ class _StudentControls extends StatelessWidget {
     required this.checkpoints,
     required this.checkpoint,
     required this.isSaving,
+    required this.isLocked,
     required this.canMarkBoarded,
     required this.onAnswerChanged,
     required this.onCheckpointChanged,
@@ -465,6 +533,7 @@ class _StudentControls extends StatelessWidget {
   final List<String> checkpoints;
   final String? checkpoint;
   final bool isSaving;
+  final bool isLocked;
   final bool canMarkBoarded;
   final ValueChanged<bool> onAnswerChanged;
   final ValueChanged<String?>? onCheckpointChanged;
@@ -477,44 +546,47 @@ class _StudentControls extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
+        Row(
           children: [
-            SegmentedButton<bool>(
-              segments: const [
-                ButtonSegment(
-                  value: true,
-                  icon: Icon(Icons.check_circle_outline),
-                  label: Text('Yes'),
-                ),
-                ButtonSegment(
-                  value: false,
-                  icon: Icon(Icons.cancel_outlined),
-                  label: Text('No'),
-                ),
-              ],
-              selected: answer == null ? const <bool>{} : {answer!},
-              emptySelectionAllowed: true,
-              onSelectionChanged: isSaving
-                  ? null
-                  : (values) {
-                      if (values.isNotEmpty) onAnswerChanged(values.first);
-                    },
+            Expanded(
+              child: _CustomChoiceButton(
+                label: 'Yes',
+                icon: Icons.check_circle_outline,
+                isSelected: answer == true,
+                isLocked: isSaving || isLocked,
+                activeBgColor: const Color(0xFF0D9488),
+                activeFgColor: Colors.white,
+                onTap: () => onAnswerChanged(true),
+              ),
             ),
-            FilledButton.tonalIcon(
-              onPressed:
-                  isSaving || boarded || !canMarkBoarded ? null : onMarkBoarded,
-              icon: boarded
-                  ? const Icon(Icons.task_alt)
-                  : const Icon(Icons.directions_bus_filled_outlined),
-              label: Text(boarded ? 'Boarded' : 'Mark boarded'),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _CustomChoiceButton(
+                label: 'No',
+                icon: Icons.cancel_outlined,
+                isSelected: answer == false,
+                isLocked: isSaving || isLocked,
+                activeBgColor: Colors.red.shade600,
+                activeFgColor: Colors.white,
+                onTap: () => onAnswerChanged(false),
+              ),
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.tonalIcon(
+            onPressed:
+                isSaving || boarded || !canMarkBoarded || isLocked ? null : onMarkBoarded,
+            icon: boarded
+                ? const Icon(Icons.task_alt)
+                : const Icon(Icons.directions_bus_filled_outlined),
+            label: Text(boarded ? 'Boarded' : 'Mark boarded'),
+          ),
+        ),
         if (period == PollPeriod.evening) ...[
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           DropdownButtonFormField<String?>(
             initialValue: _dropdownValue(checkpoints, checkpoint),
             decoration: const InputDecoration(
@@ -536,7 +608,7 @@ class _StudentControls extends StatelessWidget {
                   ),
                 ),
             ],
-            onChanged: isSaving ? null : onCheckpointChanged,
+            onChanged: isSaving || isLocked ? null : onCheckpointChanged,
           ),
         ],
         if (isSaving) ...[
@@ -548,6 +620,79 @@ class _StudentControls extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _CustomChoiceButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool isSelected;
+  final bool isLocked;
+  final Color activeBgColor;
+  final Color activeFgColor;
+  final VoidCallback? onTap;
+
+  const _CustomChoiceButton({
+    required this.label,
+    required this.icon,
+    required this.isSelected,
+    this.isLocked = false,
+    required this.activeBgColor,
+    required this.activeFgColor,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bgColor = isSelected 
+        ? (isLocked ? activeBgColor.withAlpha(153) : activeBgColor) 
+        : const Color(0xFFF3F4F6);
+    final fgColor = isSelected 
+        ? (isLocked ? activeFgColor.withAlpha(153) : activeFgColor) 
+        : (isLocked ? const Color(0xFF9CA3AF) : const Color(0xFF4B5563));
+
+    return InkWell(
+      onTap: isLocked ? null : onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected 
+                ? (isLocked ? activeBgColor.withAlpha(153) : activeBgColor) 
+                : const Color(0xFFE5E7EB),
+            width: 1.5,
+          ),
+          boxShadow: isSelected && !isLocked
+              ? [
+                  BoxShadow(
+                    color: activeBgColor.withOpacity(0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  )
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: fgColor, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: fgColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
