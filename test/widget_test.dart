@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pickkaru/models/driver.dart';
-import 'package:pickkaru/models/poll.dart';
+import 'package:pickkaru/driver/driver_core/driver.dart';
+import 'package:pickkaru/shared/poll/models/DailyPollBoard.dart';
 
 void main() {
   group('Model Tests', () {
