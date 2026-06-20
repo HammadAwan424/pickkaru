@@ -8,7 +8,8 @@ import 'package:pickkaru/student/poll/poll_provider.dart';
 
 typedef ResponseDraft = ({bool answer, String? checkpoint});
 
-class ResponseFormNotifier extends AutoDisposeFamilyAsyncNotifier<ResponseDraft, PollPeriod> {
+class ResponseFormNotifier
+    extends AutoDisposeFamilyAsyncNotifier<ResponseDraft, PollPeriod> {
   @override
   FutureOr<ResponseDraft> build(PollPeriod period) {
     final user = ref.watch(currentUserProvider).valueOrNull;
@@ -36,7 +37,7 @@ class ResponseFormNotifier extends AutoDisposeFamilyAsyncNotifier<ResponseDraft,
     if (!answerChanged && !checkpointChanged) return;
 
     state = const AsyncLoading();
-    
+
     state = await AsyncValue.guard(() async {
       final user = ref.read(currentUserProvider).valueOrNull;
       final studentId = user?.uid;
@@ -50,7 +51,7 @@ class ResponseFormNotifier extends AutoDisposeFamilyAsyncNotifier<ResponseDraft,
       if (date == null) throw Exception('No active date');
 
       final service = ref.read(studentPollServiceProvider);
-      
+
       await service.updateStudentResponse(
         args: PollArgs(driverId: driverId, period: arg),
         studentId: studentId,
@@ -58,14 +59,14 @@ class ResponseFormNotifier extends AutoDisposeFamilyAsyncNotifier<ResponseDraft,
         newAnswer: answerChanged ? newAnswer : null,
         newCheckpoint: checkpointChanged ? newCheckpoint : null,
       );
-      
+
       return (answer: newAnswer, checkpoint: newCheckpoint);
     });
   }
 
   Future<void> markBoarded() async {
     state = const AsyncLoading();
-    
+
     state = await AsyncValue.guard(() async {
       final user = ref.read(currentUserProvider).valueOrNull;
       final studentId = user?.uid;
@@ -79,14 +80,14 @@ class ResponseFormNotifier extends AutoDisposeFamilyAsyncNotifier<ResponseDraft,
       if (date == null) throw Exception('No active date');
 
       final service = ref.read(studentPollServiceProvider);
-      
+
       await service.updateStudentBoarded(
         args: PollArgs(driverId: driverId, period: arg),
         studentId: studentId,
         date: date,
         boarded: true,
       );
-      
+
       // Return the current draft state so we don't lose the UI values
       final board = ref.read(studentDailyBoardProvider(arg)).valueOrNull;
       final response = board?.responses[studentId];
@@ -98,6 +99,7 @@ class ResponseFormNotifier extends AutoDisposeFamilyAsyncNotifier<ResponseDraft,
   }
 }
 
-final responseFormNotifierProvider = AsyncNotifierProvider.autoDispose.family<ResponseFormNotifier, ResponseDraft, PollPeriod>(() {
+final responseFormNotifierProvider = AsyncNotifierProvider.autoDispose
+    .family<ResponseFormNotifier, ResponseDraft, PollPeriod>(() {
   return ResponseFormNotifier();
 });

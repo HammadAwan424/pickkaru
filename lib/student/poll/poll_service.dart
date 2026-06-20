@@ -47,7 +47,8 @@ class PollService {
   }) async {
     final updates = <String, dynamic>{
       if (newAnswer != null) 'responses.$studentId.answer': newAnswer,
-      if (newCheckpoint != null) 'responses.$studentId.checkpoint': newCheckpoint,
+      if (newCheckpoint != null)
+        'responses.$studentId.checkpoint': newCheckpoint,
       'responses.$studentId.updatedAt': FieldValue.serverTimestamp(),
     };
 
