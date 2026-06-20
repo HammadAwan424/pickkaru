@@ -72,7 +72,7 @@ class StudentControls extends ConsumerWidget {
           Row(
             children: [
               Expanded(
-                child: _CustomChoiceButton(
+                child: CustomChoiceButton(
                   label: 'Yes',
                   icon: Icons.check_circle_outline,
                   isSelected: answer == true,
@@ -84,7 +84,7 @@ class StudentControls extends ConsumerWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _CustomChoiceButton(
+                child: CustomChoiceButton(
                   label: 'No',
                   icon: Icons.cancel_outlined,
                   isSelected: answer == false,
@@ -154,7 +154,7 @@ class StudentControls extends ConsumerWidget {
   }
 }
 
-class _CustomChoiceButton extends StatelessWidget {
+class CustomChoiceButton extends StatelessWidget {
   final String label;
   final IconData icon;
   final bool isSelected;
@@ -163,7 +163,7 @@ class _CustomChoiceButton extends StatelessWidget {
   final Color activeFgColor;
   final VoidCallback? onTap;
 
-  const _CustomChoiceButton({
+  const CustomChoiceButton({
     required this.label,
     required this.icon,
     required this.isSelected,

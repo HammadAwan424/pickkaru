@@ -39,7 +39,7 @@ class _StudentPollPageState extends ConsumerState<StudentPollPage> {
     final configAsync = ref.watch(studentWatchPollConfigProvider(_period));
     final dailyBoardAsync = ref.watch(studentDailyBoardProvider(_period));
 
-    return _PollScaffold(
+    return PollScaffold(
       title: 'Route poll',
       actions: [
         IconButton(
@@ -58,7 +58,7 @@ class _StudentPollPageState extends ConsumerState<StudentPollPage> {
         ),
         Padding(
           padding: const EdgeInsetsDirectional.only(end: 16),
-          child: _PeriodSwitcher(
+          child: PeriodSwitcher(
             period: _period,
             onChanged: _showPeriod,
           ),
@@ -75,13 +75,13 @@ class _StudentPollPageState extends ConsumerState<StudentPollPage> {
                 });
               },
               children: [
-                _PollPeriodView(
+                PollPeriodView(
                   currentStudentId: user.uid,
                   currentDisplayName: user.displayName,
                   driverId: driverId,
                   period: PollPeriod.morning,
                 ),
-                _PollPeriodView(
+                PollPeriodView(
                   currentStudentId: user.uid,
                   currentDisplayName: user.displayName,
                   driverId: driverId,
@@ -112,8 +112,8 @@ class _StudentPollPageState extends ConsumerState<StudentPollPage> {
   }
 }
 
-class _PollPeriodView extends ConsumerWidget {
-  const _PollPeriodView({
+class PollPeriodView extends ConsumerWidget {
+  const PollPeriodView({
     required this.currentStudentId,
     required this.currentDisplayName,
     required this.driverId,
@@ -140,7 +140,7 @@ class _PollPeriodView extends ConsumerWidget {
     if (dailyBoardAsync.hasError ||
         rosterAsync.hasError ||
         configAsync.hasError) {
-      return _ErrorState(message: 'Error loading board or roster.');
+      return ErrorState(message: 'Error loading board or roster.');
     }
 
     final dailyBoard = dailyBoardAsync.value;
@@ -150,7 +150,7 @@ class _PollPeriodView extends ConsumerWidget {
     if (dailyBoard == null ||
         config == null ||
         config.status == PollStatus.uninitiated) {
-      return _EmptyState(
+      return EmptyState(
         message:
             "The driver has not initialized the ${period == PollPeriod.morning ? 'morning' : 'evening'} ride yet.",
       );
@@ -159,22 +159,22 @@ class _PollPeriodView extends ConsumerWidget {
     final assignedStudentIds = dailyBoard.responses.keys.toList();
 
     if (assignedStudentIds.isEmpty) {
-      return const _EmptyState(
+      return const EmptyState(
           message: 'No students are assigned to this route.');
     }
 
     final roster = rosterData?.students.map(
           (studentId, entry) => MapEntry(
             studentId,
-            _PublicStudent(displayName: entry.displayName),
+            PublicStudent(displayName: entry.displayName),
           ),
         ) ??
-        <String, _PublicStudent>{};
+        <String, PublicStudent>{};
 
     return Column(
       children: [
         if (config.status == PollStatus.active)
-          _RideStatusBanner(
+          RideStatusBanner(
             driverId: driverId,
             period: period,
           ),
@@ -185,7 +185,7 @@ class _PollPeriodView extends ConsumerWidget {
               final studentId = assignedStudentIds[index];
               final response = dailyBoard.responses[studentId];
               final publicStudent = roster[studentId] ??
-                  _PublicStudent(
+                  PublicStudent(
                     displayName: studentId == currentStudentId
                         ? currentDisplayName
                         : null,
@@ -208,8 +208,8 @@ class _PollPeriodView extends ConsumerWidget {
   }
 }
 
-class _RideStatusBanner extends ConsumerWidget {
-  const _RideStatusBanner({
+class RideStatusBanner extends ConsumerWidget {
+  const RideStatusBanner({
     required this.driverId,
     required this.period,
   });
@@ -258,8 +258,8 @@ class _RideStatusBanner extends ConsumerWidget {
   }
 }
 
-class _PeriodSwitcher extends StatelessWidget {
-  const _PeriodSwitcher({
+class PeriodSwitcher extends StatelessWidget {
+  const PeriodSwitcher({
     required this.period,
     required this.onChanged,
   });
@@ -289,8 +289,8 @@ class _PeriodSwitcher extends StatelessWidget {
   }
 }
 
-class _PollScaffold extends StatelessWidget {
-  const _PollScaffold({
+class PollScaffold extends StatelessWidget {
+  const PollScaffold({
     required this.child,
     this.title = 'Route poll',
     this.actions,
@@ -312,8 +312,8 @@ class _PollScaffold extends StatelessWidget {
   }
 }
 
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.message});
+class EmptyState extends StatelessWidget {
+  const EmptyState({required this.message});
 
   final String message;
 
@@ -332,8 +332,8 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.message});
+class ErrorState extends StatelessWidget {
+  const ErrorState({required this.message});
 
   final String message;
 
@@ -354,8 +354,8 @@ class _ErrorState extends StatelessWidget {
   }
 }
 
-class _PublicStudent {
-  const _PublicStudent({
+class PublicStudent {
+  const PublicStudent({
     this.displayName,
   });
 
