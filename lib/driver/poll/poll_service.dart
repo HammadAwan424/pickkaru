@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:pickkaru/shared/poll/models/PollConfig.dart';
 import 'package:pickkaru/shared/poll/models/PollPeriod.dart';
 import 'package:pickkaru/shared/poll/models/PollArgs.dart';
+import 'package:pickkaru/shared/poll/models/PrivateOverride.dart';
 import 'package:pickkaru/shared/date/format_date.dart';
 import '../../shared/poll/models/DailyPollBoard.dart';
 
@@ -162,8 +163,7 @@ class DriverPollService {
         resolvedAnswer = override?.morningAnswer ?? defaultAnswer;
       } else {
         resolvedAnswer = override?.eveningAnswer ?? defaultAnswer;
-        resolvedCheckpoint =
-            override?.eveningCheckpoint ?? studentDefaultCheckpoints[studentId];
+        resolvedCheckpoint = studentDefaultCheckpoints[studentId];
       }
 
       responses[studentId] = {

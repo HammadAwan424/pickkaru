@@ -1,60 +1,43 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pickkaru/shared/poll/models/DailyPollBoard.dart';
+import 'package:pickkaru/core/auth/auth_provider.dart';
+import 'package:pickkaru/shared/poll/models/PollPeriod.dart';
 import 'package:pickkaru/student/overrides/override_provider.dart';
 
-final overrideNotifierProvider = NotifierProvider.autoDispose.family<OverrideNotifier, bool?, OverrideNotifierArgs>(
-  OverrideNotifier.new,
-);
-
-@immutable
-class OverrideNotifierArgs {
-  final String studentId;
-  final DateTime date;
-  final PollPeriod period;
-  final bool? initialValue;
-
-  const OverrideNotifierArgs({
-    required this.studentId,
-    required this.date,
-    required this.period,
-    this.initialValue,
-  });
-
+class OverrideNotifier extends AutoDisposeAsyncNotifier<void> {
   @override
-  bool operator ==(Object other) {
-    return other is OverrideNotifierArgs &&
-        other.studentId == studentId &&
-        other.date == date &&
-        other.period == period;
+  FutureOr<void> build() {
+    // State is void
   }
 
-  @override
-  int get hashCode => Object.hash(studentId, date, period);
-}
-
-class OverrideNotifier extends AutoDisposeFamilyNotifier<bool?, OverrideNotifierArgs> {
-  @override
-  bool? build(OverrideNotifierArgs arg) {
-    return arg.initialValue;
+  Future<void> updateMorningAnswer(DateTime date, bool? value) async {
+    await _updateAnswer(date: date, period: PollPeriod.morning, value: value);
   }
 
-  Future<void> updateValue(bool? newValue) async {
-    if (state == newValue) return; // if value is the same, dont do anything
-    
-    final previousValue = state;
-    state = newValue;
-    
-    try {
+  Future<void> updateEveningAnswer(DateTime date, bool? value) async {
+    await _updateAnswer(date: date, period: PollPeriod.evening, value: value);
+  }
+
+  Future<void> _updateAnswer({
+    required DateTime date,
+    required PollPeriod period,
+    required bool? value,
+  }) async {
+    final user = await ref.read(currentUserProvider.future);
+    if (user == null) throw Exception('User not logged in');
+
+    state = await AsyncValue.guard(() async {
       await ref.read(overrideServiceProvider).updateFutureOverride(
-        studentId: arg.studentId,
-        date: arg.date,
-        period: arg.period,
-        value: newValue,
-      );
-    } catch (e) {
-      state = previousValue;
-      rethrow;
-    }
+            studentId: user.uid,
+            date: date,
+            period: period,
+            value: value,
+          );
+    });
   }
 }
+
+final overrideNotifierProvider =
+    AsyncNotifierProvider.autoDispose<OverrideNotifier, void>(
+  () => OverrideNotifier(),
+);

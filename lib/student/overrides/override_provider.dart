@@ -1,67 +1,38 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pickkaru/shared/poll/models/DailyPollBoard.dart';
+import 'package:pickkaru/core/auth/auth_provider.dart';
+import 'package:pickkaru/shared/date/format_date.dart';
+import 'package:pickkaru/shared/poll/models/PrivateOverride.dart';
+import 'package:pickkaru/shared/poll/models/PollPeriod.dart';
+import 'package:pickkaru/student/poll/poll_provider.dart';
 import 'package:pickkaru/student/overrides/override_service.dart';
 
 final overrideServiceProvider = Provider<OverrideService>((ref) {
   return OverrideService();
 });
 
-@immutable
-class OverrideStreamArgs {
-  final String studentId;
-  final DateTime date;
+final overridesForWeekProvider = StreamProvider<Map<String, PrivateOverride>>((ref) {
+  final user = ref.watch(currentUserProvider).valueOrNull;
+  if (user == null) return Stream.value({});
 
-  const OverrideStreamArgs({
-    required this.studentId,
-    required this.date,
-  });
+  // TODO: make some sense of this shit, we have to either use morning or evening
+  // but there is no reason to prefer one over the other 
+  // WHY THE HELL DID WE EVEN DECOPULED THEM?
+  final activeDateAsync = ref.watch(studentActiveDateProvider(PollPeriod.morning));
+  final activeDateVal = activeDateAsync.valueOrNull;
+  if (activeDateVal == null) return Stream.value({});
 
-  @override
-  bool operator ==(Object other) {
-    return other is OverrideStreamArgs &&
-        other.studentId == studentId &&
-        other.date == date;
-  }
+  // Compute start date: active date + 1 day
+  final startDate = activeDateVal.add(const Duration(days: 1));
 
-  @override
-  int get hashCode => Object.hash(studentId, date);
-}
-
-final overrideProvider =
-    StreamProvider.family<PrivateOverride?, OverrideStreamArgs>((ref, args) {
-  return ref.watch(overrideServiceProvider).watchOverride(
-        studentId: args.studentId,
-        date: args.date,
-      );
+  return ref.watch(overrideServiceProvider).watchOverridesForWeek(
+        studentId: user.uid,
+        start: startDate,
+      ).map((entries) => {
+        for (final entry in entries) formatDate(entry.key): entry.value,
+      });
 });
 
-@immutable
-class OverrideWeekArgs {
-  final String studentId;
-  final DateTime start;
-
-  const OverrideWeekArgs({
-    required this.studentId,
-    required this.start,
-  });
-
-  @override
-  bool operator ==(Object other) {
-    return other is OverrideWeekArgs &&
-        other.studentId == studentId &&
-        other.start == start;
-  }
-
-  @override
-  int get hashCode => Object.hash(studentId, start);
-}
-
-final overridesForWeekProvider =
-    StreamProvider.family<List<MapEntry<DateTime, PrivateOverride>>, OverrideWeekArgs>(
-        (ref, args) {
-  return ref.watch(overrideServiceProvider).watchOverridesForWeek(
-        studentId: args.studentId,
-        start: args.start,
-      );
+final dailyOverrideProvider = Provider.family<PrivateOverride?, DateTime>((ref, date) {
+  final weekAsync = ref.watch(overridesForWeekProvider);
+  return weekAsync.valueOrNull?[formatDate(date)];
 });

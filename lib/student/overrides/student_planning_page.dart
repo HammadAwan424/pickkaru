@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../shared/poll/models/DailyPollBoard.dart';
-import '../../poll_provider.dart';
+import 'package:pickkaru/shared/poll/models/PollPeriod.dart';
+import 'package:pickkaru/shared/poll/models/PrivateOverride.dart';
+import 'package:pickkaru/student/poll/poll_provider.dart';
+import 'package:pickkaru/student/overrides/override_provider.dart';
+import 'package:pickkaru/student/overrides/override_notifier.dart';
 
 class StudentPlanningPage extends ConsumerStatefulWidget {
   final String studentId;
@@ -20,15 +23,6 @@ class StudentPlanningPage extends ConsumerStatefulWidget {
 
 class _StudentPlanningPageState extends ConsumerState<StudentPlanningPage> {
   PollPeriod _selectedPeriod = PollPeriod.morning;
-  late DateTime _weekStart;
-
-  @override
-  void initState() {
-    super.initState();
-    final now = DateTime.now();
-    // Normalize tomorrow to midnight so that the start date is stable
-    _weekStart = DateTime(now.year, now.month, now.day).add(const Duration(days: 1));
-  }
 
   String _formatWeekday(DateTime date) {
     final weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -45,14 +39,22 @@ class _StudentPlanningPageState extends ConsumerState<StudentPlanningPage> {
 
   @override
   Widget build(BuildContext context) {
-    final overrideWeekAsync = ref.watch(
-      overridesForWeekProvider(
-        OverrideWeekArgs(
-          studentId: widget.studentId,
-          start: _weekStart,
+    final activeDateAsync = ref.watch(studentActiveDateProvider(PollPeriod.morning));
+    final activeDate = activeDateAsync.valueOrNull;
+
+    if (activeDate == null) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFF3F4F6),
+        body: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0D9488)),
+          ),
         ),
-      ),
-    );
+      );
+    }
+
+    final weekStart = DateTime(activeDate.year, activeDate.month, activeDate.day).add(const Duration(days: 1));
+    final overrideWeekAsync = ref.watch(overridesForWeekProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
@@ -73,7 +75,7 @@ class _StudentPlanningPageState extends ConsumerState<StudentPlanningPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // Period Toggle Selector (Matches Driver Command Center tab switcher)
+            // Period Toggle Selector
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
               child: Container(
@@ -147,26 +149,17 @@ class _StudentPlanningPageState extends ConsumerState<StudentPlanningPage> {
                   ),
                 ),
                 data: (overrides) {
-                  // Map list of entries to a calendar date string map for quick lookup
-                  final overrideMap = {
-                    for (final entry in overrides) _formatDateKey(entry.key): entry.value,
-                  };
-
                   return ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                     itemCount: 7,
                     itemBuilder: (context, index) {
-                      final date = _weekStart.add(Duration(days: index));
-                      final dateKey = _formatDateKey(date);
-                      final privateOverride = overrideMap[dateKey];
+                      final date = weekStart.add(Duration(days: index));
 
                       return _OverrideDayCard(
                         date: date,
                         weekdayName: _formatWeekday(date),
                         dateString: _formatDateString(date),
-                        overrideValue: privateOverride,
                         period: _selectedPeriod,
-                        studentId: widget.studentId,
                       );
                     },
                   );
@@ -177,10 +170,6 @@ class _StudentPlanningPageState extends ConsumerState<StudentPlanningPage> {
         ),
       ),
     );
-  }
-
-  String _formatDateKey(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 }
 
@@ -225,33 +214,21 @@ class _OverrideDayCard extends ConsumerWidget {
   final DateTime date;
   final String weekdayName;
   final String dateString;
-  final PrivateOverride? overrideValue;
   final PollPeriod period;
-  final String studentId;
 
   const _OverrideDayCard({
     required this.date,
     required this.weekdayName,
     required this.dateString,
-    required this.overrideValue,
     required this.period,
-    required this.studentId,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bool? initialAnswer = period == PollPeriod.morning
-        ? overrideValue?.morningAnswer
-        : overrideValue?.eveningAnswer;
-
-    final args = OverrideNotifierArgs(
-      studentId: studentId,
-      date: date,
-      period: period,
-      initialValue: initialAnswer,
-    );
-
-    final bool? currentAnswer = ref.watch(overrideNotifierProvider(args));
+    final PrivateOverride? privateOverride = ref.watch(dailyOverrideProvider(date));
+    final bool? currentAnswer = period == PollPeriod.morning
+        ? privateOverride?.morningAnswer
+        : privateOverride?.eveningAnswer;
 
     final activeBorderColor = currentAnswer != null ? const Color(0xFF0D9488) : Colors.grey.shade200;
 
@@ -319,7 +296,12 @@ class _OverrideDayCard extends ConsumerWidget {
                 dropdownColor: Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 onChanged: (newVal) {
-                  ref.read(overrideNotifierProvider(args).notifier).updateValue(newVal);
+                  final notifier = ref.read(overrideNotifierProvider.notifier);
+                  if (period == PollPeriod.morning) {
+                    notifier.updateMorningAnswer(date, newVal);
+                  } else {
+                    notifier.updateEveningAnswer(date, newVal);
+                  }
                 },
                 items: [
                   DropdownMenuItem<bool?>(
