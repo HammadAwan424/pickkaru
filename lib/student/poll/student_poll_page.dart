@@ -11,6 +11,7 @@ import '../../shared/roster/roster_provider.dart';
 import 'poll_provider.dart';
 import 'widgets/poll_entry.dart';
 import 'widgets/student_controls.dart';
+import 'widgets/styles/ride_status_banner.dart';
 
 class StudentPollPage extends ConsumerStatefulWidget {
   const StudentPollPage({super.key});
@@ -173,11 +174,7 @@ class PollPeriodView extends ConsumerWidget {
 
     return Column(
       children: [
-        if (config.status == PollStatus.active)
-          RideStatusBanner(
-            driverId: driverId,
-            period: period,
-          ),
+        if (config.status == PollStatus.active) const RideStatusBanner(),
         Expanded(
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
@@ -204,56 +201,6 @@ class PollPeriodView extends ConsumerWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class RideStatusBanner extends ConsumerWidget {
-  const RideStatusBanner({
-    required this.driverId,
-    required this.period,
-  });
-
-  final String driverId;
-  final PollPeriod period;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.green.shade50,
-        border: Border(
-          bottom: BorderSide(color: Colors.green.shade200),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.route, color: Colors.green.shade700, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Ride is active — driver is on the way.',
-              style: TextStyle(
-                color: Colors.green.shade800,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          FilledButton.tonalIcon(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Track ride — coming soon'),
-                ),
-              );
-            },
-            icon: const Icon(Icons.map, size: 18),
-            label: const Text('Track Ride'),
-          ),
-        ],
-      ),
     );
   }
 }
