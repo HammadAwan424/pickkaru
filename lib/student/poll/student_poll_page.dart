@@ -31,109 +31,73 @@ class _StudentPollPageState extends ConsumerState<StudentPollPage> {
 
   @override
   Widget build(BuildContext context) {
-    final currentUserAsync = ref.watch(currentUserProvider);
+    // These are guaranteed to be loaded by StudentGateway
+    final user = ref.watch(currentUserProvider).requireValue!;
+    final student = ref.watch(studentProvider(user.uid)).requireValue!;
+    final driverId = student.assignedDriverId!;
 
-    return currentUserAsync.when(
-      loading: () => const _PollScaffold(
-        child: Center(child: CircularProgressIndicator()),
-      ),
-      error: (error, _) => _PollScaffold(
-        child: _ErrorState(message: 'Could not load your profile: $error'),
-      ),
-      data: (user) {
-        if (user == null) {
-          return const _PollScaffold(
-            child: _EmptyState(message: 'Sign in to view your route poll.'),
-          );
-        }
+    final configAsync = ref.watch(studentWatchPollConfigProvider(_period));
+    final dailyBoardAsync = ref.watch(studentDailyBoardProvider(_period));
 
-        final studentAsync = ref.watch(studentProvider(user.uid));
-        return studentAsync.when(
-          loading: () => const _PollScaffold(
-            child: Center(child: CircularProgressIndicator()),
-          ),
-          error: (error, _) => _PollScaffold(
-            child: _ErrorState(
-                message: 'Could not load your student record: $error'),
-          ),
-          data: (student) {
-            final driverId = student?.assignedDriverId;
-            if (driverId == null || driverId.isEmpty) {
-              return const _PollScaffold(
-                child: _EmptyState(message: 'No driver is assigned yet.'),
-              );
-            }
-
-            final configAsync =
-                ref.watch(studentWatchPollConfigProvider(_period));
-            final dailyBoardAsync =
-                ref.watch(studentDailyBoardProvider(_period));
-
-            return _PollScaffold(
-              title: 'Route poll',
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.calendar_month_outlined),
-                  tooltip: 'Plan ahead',
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => StudentPlanningPage(
-                          studentId: user.uid,
-                          driverId: driverId,
-                        ),
-                      ),
-                    );
-                  },
+    return _PollScaffold(
+      title: 'Route poll',
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.calendar_month_outlined),
+          tooltip: 'Plan ahead',
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => StudentPlanningPage(
+                  studentId: user.uid,
+                  driverId: driverId,
                 ),
-                Padding(
-                  padding: const EdgeInsetsDirectional.only(end: 16),
-                  child: _PeriodSwitcher(
-                    period: _period,
-                    onChanged: _showPeriod,
-                  ),
-                ),
-              ],
-              child: Column(
-                children: [
-                  Expanded(
-                    child: PageView(
-                      controller: _pageController,
-                      onPageChanged: (index) {
-                        setState(() {
-                          _period = PollPeriod.values[index];
-                        });
-                      },
-                      children: [
-                        _PollPeriodView(
-                          currentStudentId: user.uid,
-                          currentDisplayName: user.displayName,
-                          driverId: driverId,
-                          period: PollPeriod.morning,
-                        ),
-                        _PollPeriodView(
-                          currentStudentId: user.uid,
-                          currentDisplayName: user.displayName,
-                          driverId: driverId,
-                          period: PollPeriod.evening,
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (configAsync.valueOrNull?.status != PollStatus.completed)
-                    StudentControls(
-                      period: _period,
-                      response:
-                          dailyBoardAsync.valueOrNull?.responses[user.uid],
-                      checkpoints:
-                          configAsync.valueOrNull?.checkpoints ?? const [],
-                    ),
-                ],
               ),
             );
           },
-        );
-      },
+        ),
+        Padding(
+          padding: const EdgeInsetsDirectional.only(end: 16),
+          child: _PeriodSwitcher(
+            period: _period,
+            onChanged: _showPeriod,
+          ),
+        ),
+      ],
+      child: Column(
+        children: [
+          Expanded(
+            child: PageView(
+              controller: _pageController,
+              onPageChanged: (index) {
+                setState(() {
+                  _period = PollPeriod.values[index];
+                });
+              },
+              children: [
+                _PollPeriodView(
+                  currentStudentId: user.uid,
+                  currentDisplayName: user.displayName,
+                  driverId: driverId,
+                  period: PollPeriod.morning,
+                ),
+                _PollPeriodView(
+                  currentStudentId: user.uid,
+                  currentDisplayName: user.displayName,
+                  driverId: driverId,
+                  period: PollPeriod.evening,
+                ),
+              ],
+            ),
+          ),
+          if (configAsync.valueOrNull?.status != PollStatus.completed)
+            StudentControls(
+              period: _period,
+              response: dailyBoardAsync.valueOrNull?.responses[user.uid],
+              checkpoints: configAsync.valueOrNull?.checkpoints ?? const [],
+            ),
+        ],
+      ),
     );
   }
 
