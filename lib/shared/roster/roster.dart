@@ -11,17 +11,21 @@ class RosterEntry {
     this.defaultCheckpoint,
   });
 
+  static const _sentinel = Object();
+
   RosterEntry copyWith({
     String? displayName,
     bool? defaultMorning,
     bool? defaultEvening,
-    String? defaultCheckpoint,
+    Object? defaultCheckpoint = _sentinel,
   }) {
     return RosterEntry(
       displayName: displayName ?? this.displayName,
       defaultMorning: defaultMorning ?? this.defaultMorning,
       defaultEvening: defaultEvening ?? this.defaultEvening,
-      defaultCheckpoint: defaultCheckpoint ?? this.defaultCheckpoint,
+      defaultCheckpoint: defaultCheckpoint == _sentinel
+          ? this.defaultCheckpoint
+          : defaultCheckpoint as String?,
     );
   }
 

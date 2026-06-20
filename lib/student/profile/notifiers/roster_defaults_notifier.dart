@@ -6,7 +6,7 @@ import 'package:pickkaru/shared/roster/roster.dart';
 import 'package:pickkaru/shared/roster/roster_provider.dart';
 import 'package:pickkaru/student/student_core/providers/student_provider.dart';
 
-class RosterNotifier extends AutoDisposeAsyncNotifier<RosterEntry> {
+class RosterDefaultsNotifier extends AutoDisposeAsyncNotifier<RosterEntry> {
   @override
   Future<RosterEntry> build() async {
     final user = await ref.watch(currentUserProvider.future);
@@ -76,7 +76,7 @@ class RosterNotifier extends AutoDisposeAsyncNotifier<RosterEntry> {
                 ),
       );
 
-  Future<void> setCheckpoint(String? value) => _optimisticUpdate(
+  Future<void> setCheckpoint(String value) => _optimisticUpdate(
         mutate: (prev) => prev.defaultCheckpoint == value
             ? prev
             : prev.copyWith(defaultCheckpoint: value),
@@ -90,6 +90,6 @@ class RosterNotifier extends AutoDisposeAsyncNotifier<RosterEntry> {
 }
 
 final rosterNotifierProvider =
-    AsyncNotifierProvider.autoDispose<RosterNotifier, RosterEntry>(
-  () => RosterNotifier(),
+    AsyncNotifierProvider.autoDispose<RosterDefaultsNotifier, RosterEntry>(
+  () => RosterDefaultsNotifier(),
 );
