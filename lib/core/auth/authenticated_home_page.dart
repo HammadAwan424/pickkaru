@@ -7,6 +7,7 @@ import '../../driver/layout/driver_shell.dart';
 import '../../student/layout/student_shell.dart';
 import '../../student/driver_assignment/student_driver_assignment_page.dart';
 import '../home/role_selection_page.dart';
+import '../home/username_selection_page.dart';
 
 class AuthenticatedHomePage extends ConsumerStatefulWidget {
   const AuthenticatedHomePage({super.key});
@@ -41,6 +42,10 @@ class _AuthenticatedHomePageState extends ConsumerState<AuthenticatedHomePage> {
       ),
       data: (user) {
         if (user == null) {
+          return const UsernameSelectionPage();
+        }
+
+        if (user.role == null) {
           return const RoleSelectionPage();
         }
 

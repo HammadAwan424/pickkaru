@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pickkaru/shared/date/format_date.dart';
 import 'package:pickkaru/shared/poll/models/PollPeriod.dart';
 import '../../shared/poll/models/PrivateOverride.dart';
@@ -35,7 +36,7 @@ class OverrideService {
     await overrideRef.set(updates, SetOptions(merge: true));
   }
 
-  Stream<List<MapEntry<DateTime, PrivateOverride>>> watchOverridesForWeek({
+  Stream<List<MapEntry<DateTime, PrivateOverride>>> watchLocalOverridesForWeek({
     required String studentId,
     required DateTime start,
   }) {
@@ -49,7 +50,7 @@ class OverrideService {
         .collection('overrides')
         .where(FieldPath.documentId, isGreaterThanOrEqualTo: startStr)
         .where(FieldPath.documentId, isLessThanOrEqualTo: endStr)
-        .snapshots()
+        .snapshots(source: ListenSource.cache)
         .map((snapshot) {
       return snapshot.docs.map((doc) {
         return MapEntry(
@@ -60,3 +61,7 @@ class OverrideService {
     });
   }
 }
+
+final overrideServiceProvider = Provider<OverrideService>((ref) {
+  return OverrideService();
+});

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pickkaru/driver/driver_core/driver.dart';
+import 'package:pickkaru/driver/driver_core/Driver.dart';
 import 'package:pickkaru/shared/poll/models/DailyPollBoard.dart';
 import 'package:pickkaru/shared/poll/models/PrivateOverride.dart';
 

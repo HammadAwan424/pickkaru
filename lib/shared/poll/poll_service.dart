@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pickkaru/shared/poll/models/PollConfig.dart';
 import 'package:pickkaru/shared/poll/models/PollPeriod.dart';
 import 'package:pickkaru/shared/poll/models/PollArgs.dart';
@@ -39,3 +40,7 @@ class SharedPollService {
 
 
 }
+
+final sharedPollServiceProvider = Provider<SharedPollService>((ref) {
+  return SharedPollService();
+});

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pickkaru/core/auth/auth_provider.dart';
 import 'package:pickkaru/shared/poll/models/PollPeriod.dart';
-import 'package:pickkaru/student/overrides/override_provider.dart';
+import 'package:pickkaru/student/overrides/override_service.dart';
 
 class OverrideNotifier extends AutoDisposeAsyncNotifier<void> {
   @override
@@ -26,7 +26,7 @@ class OverrideNotifier extends AutoDisposeAsyncNotifier<void> {
     final user = await ref.read(currentUserProvider.future);
     if (user == null) throw Exception('User not logged in');
 
-    state = await AsyncValue.guard(() async {
+    await AsyncValue.guard(() async {
       await ref.read(overrideServiceProvider).updateFutureOverride(
             studentId: user.uid,
             date: date,

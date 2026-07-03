@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pickkaru/shared/roster/roster_provider.dart';
 
-import '../../shared/poll/models/DailyPollBoard.dart';
 import '../../shared/poll/models/PollPeriod.dart';
 import '../../shared/poll/models/PollConfig.dart';
 import '../../core/auth/auth_provider.dart';
 import '../student_core/providers/student_provider.dart';
 import '../overrides/student_planning_page.dart';
-import '../../shared/roster/roster_provider.dart';
 import 'poll_provider.dart';
 import 'widgets/poll_entry.dart';
 import 'widgets/student_controls.dart';

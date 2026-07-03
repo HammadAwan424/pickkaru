@@ -1,16 +1,36 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pickkaru/shared/poll/models/PollConfig.dart';
 import 'package:pickkaru/shared/poll/models/PollPeriod.dart';
 import 'package:pickkaru/shared/poll/models/PollArgs.dart';
 import 'package:pickkaru/shared/poll/models/PrivateOverride.dart';
 import 'package:pickkaru/shared/date/format_date.dart';
-import '../../shared/poll/models/DailyPollBoard.dart';
 
 class DriverPollService {
   DriverPollService({FirebaseFirestore? firestore})
       : _db = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _db;
+
+  Map<String, dynamic> _generateInitialResponse({
+    required PollPeriod period,
+    required bool defaultMorning,
+    required bool defaultEvening,
+    required String? defaultCheckpoint,
+    PrivateOverride? override,
+  }) {
+    final bool resolvedAnswer = period == PollPeriod.morning
+        ? (override?.morningAnswer ?? defaultMorning)
+        : (override?.eveningAnswer ?? defaultEvening);
+
+    return {
+      'answer': resolvedAnswer,
+      if (period == PollPeriod.evening && defaultCheckpoint != null)
+        'checkpoint': defaultCheckpoint,
+      'boarded': false,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+  }
 
   DocumentReference<Map<String, dynamic>> _responsesRef(
     PollArgs args,
@@ -89,8 +109,7 @@ class DriverPollService {
     final rosterDoc = await _db.collection('rosters').doc(args.driverId).get();
     final rosterData = rosterDoc.data();
     
-    final studentDefaults = <String, bool>{};
-    final studentDefaultCheckpoints = <String, String?>{};
+    final studentsData = <String, Map<String, dynamic>>{};
     final todayOverrides = <String, PrivateOverride>{};
     
     if (rosterData != null && rosterData['students'] != null) {
@@ -99,15 +118,7 @@ class DriverPollService {
       final futures = <Future<MapEntry<String, DocumentSnapshot<Map<String, dynamic>>>>>[];
 
       for (final studentId in studentsMap.keys) {
-        final studentData = Map<String, dynamic>.from(studentsMap[studentId] as Map);
-        
-        // Extract default morning/evening answers based on period
-        final defaultAnswer = args.period == PollPeriod.morning
-            ? (studentData['defaultMorning'] as bool? ?? false)
-            : (studentData['defaultEvening'] as bool? ?? false);
-            
-        studentDefaults[studentId] = defaultAnswer;
-        studentDefaultCheckpoints[studentId] = studentData['defaultCheckpoint'] as String?;
+        studentsData[studentId] = Map<String, dynamic>.from(studentsMap[studentId] as Map);
         
         // 2. Queue override fetch concurrently
         final future = _db
@@ -134,8 +145,7 @@ class DriverPollService {
     await initializeDailyPoll(
       args: args,
       date: dateStr,
-      studentDefaults: studentDefaults,
-      studentDefaultCheckpoints: studentDefaultCheckpoints,
+      studentsData: studentsData,
       todayOverrides: todayOverrides,
       batch: batch,
     );
@@ -144,48 +154,47 @@ class DriverPollService {
   Future<void> initializeDailyPoll({
     required PollArgs args,
     required String date,
-    required Map<String, bool> studentDefaults,
-    required Map<String, String?> studentDefaultCheckpoints,
+    required Map<String, Map<String, dynamic>> studentsData,
     required Map<String, PrivateOverride> todayOverrides,
     WriteBatch? batch,
   }) async {
     final responses = <String, dynamic>{};
 
-    for (final entry in studentDefaults.entries) {
+    for (final entry in studentsData.entries) {
       final studentId = entry.key;
-      final defaultAnswer = entry.value;
+      final data = entry.value;
       final override = todayOverrides[studentId];
 
-      bool? resolvedAnswer;
-      String? resolvedCheckpoint;
+      final responseMap = _generateInitialResponse(
+        period: args.period,
+        defaultMorning: data['defaultMorning'] as bool? ?? false,
+        defaultEvening: data['defaultEvening'] as bool? ?? false,
+        defaultCheckpoint: data['defaultCheckpoint'] as String?,
+        override: override,
+      );
 
-      if (args.period == PollPeriod.morning) {
-        resolvedAnswer = override?.morningAnswer ?? defaultAnswer;
-      } else {
-        resolvedAnswer = override?.eveningAnswer ?? defaultAnswer;
-        resolvedCheckpoint = studentDefaultCheckpoints[studentId];
-      }
-
-      responses[studentId] = {
-        'answer': resolvedAnswer,
-        if (args.period == PollPeriod.evening && resolvedCheckpoint != null)
-          'checkpoint': resolvedCheckpoint,
-        'boarded': false,
-        'updatedAt': FieldValue.serverTimestamp(),
-      };
+      responses[studentId] = responseMap;
     }
 
     final docRef = _responsesRef(args, date);
-    final data = {
+    final updates = {
       'responses': responses,
-      'approachingStudentIds': <String>[],
+      // If the document doesn't exist, we must provide approachingStudentIds
+      // We'll use merge, so if it does exist, this will just overwrite with empty if we sent empty.
+      // Actually, merge: true only merges nested fields if they are maps. For arrays, it replaces.
+      // We shouldn't overwrite approachingStudentIds if the doc already exists!
+      // But we can just set responses map. We don't need approachingStudentIds if we're just merging responses.
     };
 
     if (batch != null) {
-      batch.set(docRef, data);
+      batch.set(docRef, {'responses': responses}, SetOptions(merge: true));
     } else {
-      await docRef.set(data);
+      await docRef.set({'responses': responses}, SetOptions(merge: true));
     }
   }
 
 }
+
+final driverPollServiceProvider = Provider<DriverPollService>((ref) {
+  return DriverPollService();
+});

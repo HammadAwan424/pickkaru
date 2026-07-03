@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/poll/models/DailyPollBoard.dart';
-import '../../shared/roster/roster.dart';
+import '../../shared/roster/Roster.dart';
 import '../../core/auth/auth_provider.dart';
 import '../../poll_provider.dart';
 import '../../shared/roster/roster_provider.dart';

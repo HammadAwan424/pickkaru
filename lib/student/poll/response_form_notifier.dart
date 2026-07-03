@@ -1,41 +1,20 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pickkaru/core/auth/auth_provider.dart';
+import 'package:pickkaru/student/poll/poll_service.dart';
 import 'package:pickkaru/student/student_core/providers/student_provider.dart';
 import 'package:pickkaru/shared/poll/models/PollPeriod.dart';
 import 'package:pickkaru/shared/poll/models/PollArgs.dart';
 import 'package:pickkaru/student/poll/poll_provider.dart';
 
-typedef ResponseDraft = ({bool answer, String? checkpoint});
-
-class ResponseFormNotifier
-    extends AutoDisposeFamilyAsyncNotifier<ResponseDraft, PollPeriod> {
+class ResponseFormNotifier extends AutoDisposeFamilyAsyncNotifier<void, PollPeriod> {
   @override
-  FutureOr<ResponseDraft> build(PollPeriod period) {
-    final user = ref.watch(currentUserProvider).valueOrNull;
-    final studentId = user?.uid;
-    if (studentId == null) return (answer: false, checkpoint: null);
-
-    final board = ref.watch(studentDailyBoardProvider(period)).valueOrNull;
-    final response = board?.responses[studentId];
-
-    return (
-      answer: response?.answer ?? false,
-      checkpoint: response?.checkpoint,
-    );
-  }
+  FutureOr<void> build(PollPeriod period) {}
 
   Future<void> updateResponse({
     required bool newAnswer,
     String? newCheckpoint,
   }) async {
-    final currentState = state.value!;
-
-    final answerChanged = newAnswer != currentState.answer;
-    final checkpointChanged = newCheckpoint != currentState.checkpoint;
-
-    if (!answerChanged && !checkpointChanged) return;
-
     state = const AsyncLoading();
 
     state = await AsyncValue.guard(() async {
@@ -56,11 +35,9 @@ class ResponseFormNotifier
         args: PollArgs(driverId: driverId, period: arg),
         studentId: studentId,
         date: date,
-        newAnswer: answerChanged ? newAnswer : null,
-        newCheckpoint: checkpointChanged ? newCheckpoint : null,
+        newAnswer: newAnswer,
+        newCheckpoint: newCheckpoint,
       );
-
-      return (answer: newAnswer, checkpoint: newCheckpoint);
     });
   }
 
@@ -87,19 +64,11 @@ class ResponseFormNotifier
         date: date,
         boarded: true,
       );
-
-      // Return the current draft state so we don't lose the UI values
-      final board = ref.read(studentDailyBoardProvider(arg)).valueOrNull;
-      final response = board?.responses[studentId];
-      return (
-        answer: response!.answer!,
-        checkpoint: response.checkpoint,
-      );
     });
   }
 }
 
 final responseFormNotifierProvider = AsyncNotifierProvider.autoDispose
-    .family<ResponseFormNotifier, ResponseDraft, PollPeriod>(() {
+    .family<ResponseFormNotifier, void, PollPeriod>(() {
   return ResponseFormNotifier();
 });

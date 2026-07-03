@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pickkaru/student/student_core/services/student_service.dart';
 import '../../core/auth/auth_provider.dart';
 import '../student_core/providers/student_provider.dart';
 import 'location_picker_screen.dart';
@@ -31,11 +32,11 @@ class _StudentSettingsPageState extends ConsumerState<StudentSettingsPage> {
   }
 
   Future<void> _save(String uid, String currentDisplayName, String assignedDriverId) async {
-    final service = ref.read(studentServiceProvider);
+    final studentService = ref.read(studentServiceProvider);
     final newDisplayName = _displayNameController.text.trim();
-
+    
     if (newDisplayName != currentDisplayName) {
-      await service.updateDisplayName(
+      await studentService.updateDisplayName(
         uid: uid,
         assignedDriverId: assignedDriverId,
         newDisplayName: newDisplayName,

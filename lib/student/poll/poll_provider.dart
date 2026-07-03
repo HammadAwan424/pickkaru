@@ -6,11 +6,7 @@ import 'package:pickkaru/shared/poll/models/PollPeriod.dart';
 import 'package:pickkaru/shared/poll/poll_provider.dart';
 import 'package:pickkaru/shared/poll/models/PollConfig.dart';
 import 'package:pickkaru/shared/poll/models/PollArgs.dart';
-import 'package:pickkaru/student/poll/poll_service.dart';
 
-final studentPollServiceProvider = Provider<PollService>((ref) {
-  return PollService();
-});
 
 final studentWatchPollConfigProvider = Provider.autoDispose
     .family<AsyncValue<PollConfig?>, PollPeriod>((ref, period) {
@@ -57,4 +53,21 @@ final studentActiveDateProvider = Provider.autoDispose
 
   return ref.watch(
       sharedActiveDateProvider(PollArgs(driverId: driverId, period: period)));
+});
+
+typedef ResponseDraft = ({bool answer, String? checkpoint});
+
+final studentResponseProvider = Provider.autoDispose
+    .family<ResponseDraft, PollPeriod>((ref, period) {
+  final user = ref.watch(currentUserProvider).valueOrNull;
+  final studentId = user?.uid;
+  if (studentId == null) return (answer: false, checkpoint: null);
+
+  final board = ref.watch(studentDailyBoardProvider(period)).valueOrNull;
+  final response = board?.responses[studentId];
+
+  return (
+    answer: response?.answer ?? false,
+    checkpoint: response?.checkpoint,
+  );
 });

@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../auth/firebase_signup_service.dart';
+import '../auth/auth_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -32,8 +32,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   Future<void> _handleGoogleSignIn() async {
     setState(() => _loading = true);
     try {
-      final svc = FirebaseSignupService();
-      await svc.signInWithGoogleOnly();
+      final svc = AuthService();
+      await svc.signInWithGoogle();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

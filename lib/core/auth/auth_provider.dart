@@ -4,9 +4,6 @@ import 'package:pickkaru/core/user/user.dart';
 import 'package:pickkaru/core/auth/auth_service.dart';
 import 'package:pickkaru/core/user/user_service.dart';
 
-final authServiceProvider = Provider((ref) => AuthService());
-final userServiceProvider = Provider((ref) => UserService());
-
 // Firebase Auth stream — gives you uid only
 final authStateProvider = StreamProvider<User?>((ref) {
   return ref.watch(authServiceProvider).authStateChanges;
@@ -21,7 +18,7 @@ final currentUserProvider = StreamProvider<UserModel?>((ref) {
     error: (_, __) => Stream.value(null),
     data: (firebaseUser) {
       if (firebaseUser == null) return Stream.value(null);
-      return ref.watch(userServiceProvider).watchUser(firebaseUser.uid);
+      return ref.watch(userServiceProvider).watchLocalUser(firebaseUser.uid);
     },
   );
 });

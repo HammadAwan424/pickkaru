@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pickkaru/shared/poll/models/PollPeriod.dart';
 import 'package:pickkaru/shared/poll/models/PollArgs.dart';
 import 'package:pickkaru/shared/date/format_date.dart';
@@ -57,3 +58,7 @@ class PollService {
     await _responsesRef(args, formatDate(date)).update(updates);
   }
 }
+
+final studentPollServiceProvider = Provider<PollService>((ref) {
+  return PollService();
+});

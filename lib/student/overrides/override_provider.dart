@@ -6,9 +6,6 @@ import 'package:pickkaru/shared/poll/models/PollPeriod.dart';
 import 'package:pickkaru/student/poll/poll_provider.dart';
 import 'package:pickkaru/student/overrides/override_service.dart';
 
-final overrideServiceProvider = Provider<OverrideService>((ref) {
-  return OverrideService();
-});
 
 final overridesForWeekProvider = StreamProvider<Map<String, PrivateOverride>>((ref) {
   final user = ref.watch(currentUserProvider).valueOrNull;
@@ -24,7 +21,7 @@ final overridesForWeekProvider = StreamProvider<Map<String, PrivateOverride>>((r
   // Compute start date: active date + 1 day
   final startDate = activeDateVal.add(const Duration(days: 1));
 
-  return ref.watch(overrideServiceProvider).watchOverridesForWeek(
+  return ref.watch(overrideServiceProvider).watchLocalOverridesForWeek(
         studentId: user.uid,
         start: startDate,
       ).map((entries) => {

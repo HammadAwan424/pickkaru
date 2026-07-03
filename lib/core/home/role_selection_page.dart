@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../auth/firebase_signup_service.dart';
+import '../../student/student_core/services/student_service.dart';
+import '../../driver/driver_core/services/driver_service.dart';
 import '../enums.dart';
 
 class RoleSelectionPage extends StatefulWidget {
@@ -25,13 +26,22 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
 
     setState(() => _loading = true);
     try {
-      final svc = FirebaseSignupService();
-      await svc.createSignupFirestoreProfile(
-        uid: user.uid,
-        username: user.email?.split('@').first ?? user.uid,
-        displayName: user.displayName ?? '',
-        role: _role,
-      );
+      final username = user.email?.split('@').first ?? user.uid;
+      final displayName = user.displayName ?? '';
+      
+      if (_role == roles.student) {
+        await StudentService().createStudentAccount(
+          uid: user.uid,
+          username: username,
+          displayName: displayName,
+        );
+      } else {
+        await DriverService().createDriverAccount(
+          uid: user.uid,
+          username: username,
+          displayName: displayName,
+        );
+      }
       // Riverpod's stream listener in the router gate will automatically
       // detect this new user record and route them to their homepage.
     } catch (e) {
