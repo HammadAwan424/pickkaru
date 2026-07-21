@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pickkaru/student/student_core/services/student_service.dart';
-import '../../core/auth/auth_provider.dart';
-import '../student_core/providers/student_provider.dart';
+import 'package:pickkaru/core/auth/auth_provider.dart';
+import 'package:pickkaru/student/student_core/providers/student_provider.dart';
+import 'package:pickkaru/driver/driver_core/providers/driver_provider.dart';
+import '../../core/auth/auth_service.dart';
 import 'location_picker_screen.dart';
 
 class StudentSettingsPage extends ConsumerStatefulWidget {
@@ -14,9 +16,6 @@ class StudentSettingsPage extends ConsumerStatefulWidget {
 
 class _StudentSettingsPageState extends ConsumerState<StudentSettingsPage> {
   final _displayNameController = TextEditingController();
-  final _checkpointController = TextEditingController();
-  bool _defaultMorning = false;
-  bool _defaultEvening = false;
   bool _initialized = false;
 
   // map related state
@@ -27,7 +26,6 @@ class _StudentSettingsPageState extends ConsumerState<StudentSettingsPage> {
   @override
   void dispose() {
     _displayNameController.dispose();
-    _checkpointController.dispose();
     super.dispose();
   }
 
@@ -43,16 +41,6 @@ class _StudentSettingsPageState extends ConsumerState<StudentSettingsPage> {
       );
     }
 
-    await service.updateStudentDefaults(
-      uid: uid,
-      assignedDriverId: assignedDriverId,
-      defaultMorning: _defaultMorning,
-      defaultEvening: _defaultEvening,
-      defaultCheckpoint: _checkpointController.text.trim().isEmpty
-          ? null
-          : _checkpointController.text.trim(),
-    );
-
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Settings saved')),
@@ -62,26 +50,15 @@ class _StudentSettingsPageState extends ConsumerState<StudentSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final userAsync = ref.watch(currentUserProvider);
-    final user = userAsync.value;
+    final user = ref.watch(requireUserProvider);
+    final student = ref.watch(requireStudentProvider);
 
-    final studentAsync = user == null ? null : ref.watch(studentProvider(user.uid));
-    final student = studentAsync?.value;
-
-    // initialize once when both models are available
-    if (!_initialized && user != null && student != null) {
+    if (!_initialized) {
       _displayNameController.text = user.displayName;
-      _defaultMorning = student.defaultMorning;
-      _defaultEvening = student.defaultEvening;
-      _checkpointController.text = student.defaultCheckpoint ?? '';
       _initialized = true;
     }
 
-    final isReady = user != null && student != null;
-
-    return isReady
-        ? _buildForm(user.uid, user.displayName, student.assignedDriverId!) // guranteed to exist
-        : const Center(child: CircularProgressIndicator());
+    return _buildForm(user.uid, user.displayName, student.assignedDriverId);
   }
 
   Widget _buildForm(String uid, String currentDisplayName, String assignedDriverId) {
@@ -133,25 +110,6 @@ class _StudentSettingsPageState extends ConsumerState<StudentSettingsPage> {
               ),
             ),
 
-
-
-          const SizedBox(height: 20),
-          const Text('Defaults', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          SwitchListTile(
-            title: const Text('Default Morning'),
-            value: _defaultMorning,
-            onChanged: (v) => setState(() => _defaultMorning = v),
-          ),
-          SwitchListTile(
-            title: const Text('Default Evening'),
-            value: _defaultEvening,
-            onChanged: (v) => setState(() => _defaultEvening = v),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _checkpointController,
-            decoration: const InputDecoration(labelText: 'Default Checkpoint'),
-          ),
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: () => _save(uid, currentDisplayName, assignedDriverId),

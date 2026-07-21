@@ -5,19 +5,15 @@ import 'user.dart';
 class UserService {
   final _db = FirebaseFirestore.instance;
 
-  Stream<UserModel?> watchLocalUser(String uid) {
+  Stream<UserProfile?> watchLocalUser(String uid) {
     return _db.collection("users").doc(uid)
       .snapshots(source: ListenSource.cache)
-      .map((snap) => snap.exists ? UserModel.fromMap(snap.id, snap.data()!) : null);
+      .map((snap) => snap.exists ? UserProfile.fromMap(snap.id, snap.data()!) : null);
   }
 
-  Future<void> createInitialProfile({
-    required String uid,
-    required String username,
-    required String displayName,
-  }) async {
-    final usernameRef = _db.collection('usernames').doc(username);
-    final userProfileRef = _db.collection('users').doc(uid);
+  Future<void> createInitialProfile(PendingUserProfile user) async {
+    final usernameRef = _db.collection('usernames').doc(user.username);
+    final userProfileRef = _db.collection('users').doc(user.uid);
 
     final checkDoc = await usernameRef.get();
     if (checkDoc.exists) {
@@ -27,13 +23,10 @@ class UserService {
     final batch = _db.batch();
     
     batch.set(usernameRef, {
-      'uid': uid,
+      'uid': user.uid,
     });
 
-    batch.set(userProfileRef, {
-      'displayName': displayName,
-      'username': username,
-    });
+    batch.set(userProfileRef, user.toMap());
 
     try {
       await batch.commit();

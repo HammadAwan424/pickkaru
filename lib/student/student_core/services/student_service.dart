@@ -1,32 +1,27 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../Student.dart';
-import '../../../core/user/user_service.dart';
 import '../../../core/enums.dart';
 
 class StudentService {
   final _db = FirebaseFirestore.instance;
 
-  Stream<StudentModel?> watchLocalStudent(String uid) {
+  Stream<StudentProfile?> watchLocalStudent(String uid) {
     return _db.collection('students').doc(uid).snapshots(source: ListenSource.cache).map((snap) {
-      return snap.exists ? StudentModel.fromMap(snap.id, snap.data()!) : null;
+      return snap.exists ? StudentProfile.fromMap(snap.data()!) : null;
     });
   }
 
-  Future<void> createStudentAccount({
-    required String uid,
-  }) async {
+  Future<void> createStudentAccount(StudentProfile student) async {
     final batch = _db.batch();
 
-    final usersRef = _db.collection('users').doc(uid);
+    final usersRef = _db.collection('users').doc(student.uid);
     batch.update(usersRef, {
       'role': roles.student.name,
     });
 
-    final studentsRef = _db.collection('students').doc(uid);
-    batch.set(studentsRef, {
-      'assignedDriverId': null,
-    });
+    final studentsRef = _db.collection('students').doc(student.uid);
+    batch.set(studentsRef, student.toMap());
 
     await batch.commit();
   }
@@ -69,21 +64,11 @@ class StudentService {
       'assignedStudents': FieldValue.arrayUnion([studentUid]),
     });
 
-    final rosterRef = _db.collection('rosters').doc(driverDocId);
-    batch.set(
-      rosterRef,
-      {
-        'students': {
-          studentUid: {
-            'displayName': displayName,
-            'defaultMorning': true,
-            'defaultEvening': true,
-            'defaultCheckpoint': null,
-          }
-        }
-      },
-      SetOptions(merge: true),
-    );
+    // TODO: The assignment should also add the student to the driver's trip configs.
+    // This is typically handled by a backend trigger (Supabase/Firebase Admin) when
+    // a student joins a driver's roster.
+    // The client could do it by querying all trips and updating config docs,
+    // but the student might not have write access to the driver's trips collection.
 
     await batch.commit();
   }

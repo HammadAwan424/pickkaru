@@ -283,8 +283,9 @@ class TransitBackgroundPainter extends CustomPainter {
 
     // 3. Extract path metrics for animated vehicle placement
     final PathMetrics metrics = path.computeMetrics();
-    if (metrics.isNotEmpty) {
-      final PathMetric metric = metrics.first;
+    final iterator = metrics.iterator;
+    if (iterator.moveNext()) {
+      final PathMetric metric = iterator.current;
       final double totalLength = metric.length;
       final double currentPos = totalLength * animationValue;
       final Tangent? tangent = metric.getTangentForOffset(currentPos);

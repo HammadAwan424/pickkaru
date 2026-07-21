@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../poll/student_poll_page.dart';
 import '../profile/student_settings_page.dart';
 
 // lib/features/shell/student_shell.dart
@@ -15,7 +14,7 @@ class _StudentShellState extends State<StudentShell> {
   int _currentIndex = 0;
 
   final _pages = [
-    const StudentPollPage(),
+    const Scaffold(body: Center(child: Text('Trip Dashboard (Coming Soon)'))),
     const StudentSettingsPage(),
   ];
 

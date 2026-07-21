@@ -1,34 +1,61 @@
-class StudentModel {
-  final String uid;
-  final String? assignedDriverId;
-  final bool defaultMorning;
-  final bool defaultEvening;
-  final String? defaultCheckpoint;
+enum StudentInitType { unassigned, assigned }
 
-  StudentModel({
+sealed class StudentProfile {
+  final String uid;
+  final StudentInitType initType;
+
+  const StudentProfile({
     required this.uid,
-    this.assignedDriverId,
-    this.defaultMorning = false,
-    this.defaultEvening = false,
-    this.defaultCheckpoint,
+    required this.initType,
   });
 
-  factory StudentModel.fromMap(String uid, Map<String, dynamic> map) {
-    return StudentModel(
-      uid: uid,
-      assignedDriverId: map['assignedDriverId'] as String?,
-      defaultMorning: map['defaultMorning'] as bool? ?? false,
-      defaultEvening: map['defaultEvening'] as bool? ?? false,
-      defaultCheckpoint: map['defaultCheckpoint'] as String?,
+  Map<String, dynamic> _commonMap() => {
+    'uid': uid,
+    'initType': initType.name,
+  };
+
+  factory StudentProfile.fromMap(Map<String, dynamic> map) {
+    final type = StudentInitType.values.byName(map['initType'] as String);
+    return switch (type) {
+      StudentInitType.unassigned => UnassignedStudentProfile.fromMap(map),
+      StudentInitType.assigned => AssignedStudentProfile.fromMap(map),
+    };
+  }
+
+  Map<String, dynamic> toMap();
+}
+
+class UnassignedStudentProfile extends StudentProfile {
+  const UnassignedStudentProfile({
+    required super.uid,
+  }) : super(initType: StudentInitType.unassigned); // Hardcoded safely
+
+  factory UnassignedStudentProfile.fromMap(Map<String, dynamic> map) {
+    return UnassignedStudentProfile(
+      uid: map['uid'] as String,
     );
   }
 
-  Map<String, dynamic> toMap() {
-    return {
-      'assignedDriverId': assignedDriverId,
-      'defaultMorning': defaultMorning,
-      'defaultEvening': defaultEvening,
-      'defaultCheckpoint': defaultCheckpoint,
-    };
+  Map<String, dynamic> toMap() => _commonMap();
+}
+
+class AssignedStudentProfile extends StudentProfile {
+  final String assignedDriverId;
+
+  const AssignedStudentProfile({
+    required super.uid,
+    required this.assignedDriverId,
+  }) : super(initType: StudentInitType.assigned); // Hardcoded safely
+
+  factory AssignedStudentProfile.fromMap(Map<String, dynamic> map) {
+    return AssignedStudentProfile(
+      uid: map['uid'] as String,
+      assignedDriverId: map['assignedDriverId'] as String,
+    );
   }
+
+  Map<String, dynamic> toMap() => {
+    ..._commonMap(),
+    'assignedDriverId': assignedDriverId,
+  };
 }

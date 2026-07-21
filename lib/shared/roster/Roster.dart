@@ -64,4 +64,19 @@ class Roster {
           )),
     );
   }
+
+  factory Roster.skeleton(String driverId) {
+    return Roster(
+      driverId: driverId,
+      students: const {},
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'students': students.map(
+        (key, value) => MapEntry(key, value.toMap()),
+      ),
+    };
+  }
 }

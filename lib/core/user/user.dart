@@ -1,30 +1,65 @@
 import '../enums.dart';
 
-class UserModel {
+sealed class UserProfile {
   final String uid;
-  final roles? role;
   final String displayName;
   final String username;
 
-  UserModel({
+  const UserProfile({
     required this.uid,
-    this.role,
     required this.displayName,
     required this.username,
   });
 
-  factory UserModel.fromMap(String uid, Map<String, dynamic> map) {
-    return UserModel(
+  factory UserProfile.fromMap(String uid, Map<String, dynamic> map) {
+    if (map.containsKey('role') && map['role'] != null) {
+      return UserModel(
+        uid: uid,
+        role: roles.values.byName(map['role'] as String),
+        displayName: map['displayName'] as String? ?? '',
+        username: map['username'] as String? ?? '',
+      );
+    }
+    return PendingUserProfile(
       uid: uid,
-      role: map['role'] != null ? roles.values.byName(map['role'] as String) : null,
       displayName: map['displayName'] as String? ?? '',
       username: map['username'] as String? ?? '',
     );
   }
 
+  Map<String, dynamic> toMap();
+}
+
+class PendingUserProfile extends UserProfile {
+  const PendingUserProfile({
+    required super.uid,
+    required super.displayName,
+    required super.username,
+  });
+
+  @override
   Map<String, dynamic> toMap() {
     return {
-      if (role != null) 'role': role!.name,
+      'displayName': displayName,
+      'username': username,
+    };
+  }
+}
+
+class UserModel extends UserProfile {
+  final roles role;
+
+  const UserModel({
+    required super.uid,
+    required this.role,
+    required super.displayName,
+    required super.username,
+  });
+
+  @override
+  Map<String, dynamic> toMap() {
+    return {
+      'role': role.name,
       'displayName': displayName,
       'username': username,
     };

@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pickkaru/core/auth/auth_provider.dart';
 import 'package:pickkaru/student/roster/roster_service.dart';
+
+import 'package:pickkaru/core/auth/auth_provider.dart';
 import 'package:pickkaru/student/student_core/providers/student_provider.dart';
+import 'package:pickkaru/driver/driver_core/providers/driver_provider.dart';
 
 class RosterDefaultsNotifier extends AutoDisposeAsyncNotifier<void> {
   @override
@@ -16,11 +18,10 @@ class RosterDefaultsNotifier extends AutoDisposeAsyncNotifier<void> {
   }) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
-      final user = await ref.read(currentUserProvider.future);
-      if (user == null) throw Exception('User not logged in');
+      final user = ref.read(requireUserProvider);
 
-      final student = await ref.read(studentProvider(user.uid).future);
-      final driverId = student?.assignedDriverId;
+      final student = ref.read(requireStudentProvider);
+      final driverId = student.assignedDriverId;
       if (driverId == null) throw Exception('No driver assigned');
 
       await ref.read(studentRosterServiceProvider).updateStudentDefaults(

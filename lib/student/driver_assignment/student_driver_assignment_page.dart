@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../student_core/services/student_service.dart';
-import '../../core/auth/auth_provider.dart';
+import 'package:pickkaru/core/auth/auth_provider.dart';
+import 'package:pickkaru/student/student_core/providers/student_provider.dart';
+import 'package:pickkaru/driver/driver_core/providers/driver_provider.dart';
 
 class StudentDriverAssignmentPage extends ConsumerStatefulWidget {
   final String studentUid;
@@ -33,8 +35,8 @@ class _StudentDriverAssignmentPageState
 
     setState(() => _loading = true);
     try {
-      final user = ref.read(currentUserProvider).valueOrNull;
-      final displayName = user?.displayName ?? 'Student';
+      final user = ref.read(requireUserProvider);
+      final displayName = user.displayName;
       await ref.read(studentServiceProvider).assignDriverToStudent(
         displayName: displayName,
         studentUid: widget.studentUid,

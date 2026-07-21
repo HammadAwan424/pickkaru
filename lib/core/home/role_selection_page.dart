@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../student/student_core/services/student_service.dart';
 import '../../driver/driver_core/services/driver_service.dart';
+import '../../student/student_core/Student.dart';
+import '../../driver/driver_core/Driver.dart';
 import '../enums.dart';
 
 class RoleSelectionPage extends StatefulWidget {
@@ -26,21 +28,18 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
 
     setState(() => _loading = true);
     try {
-      final username = user.email?.split('@').first ?? user.uid;
-      final displayName = user.displayName ?? '';
       
       if (_role == roles.student) {
-        await StudentService().createStudentAccount(
+        await StudentService().createStudentAccount(UnassignedStudentProfile(
           uid: user.uid,
-          username: username,
-          displayName: displayName,
-        );
+        ));
       } else {
-        await DriverService().createDriverAccount(
+        await DriverService().createDriverAccount(DriverModel(
           uid: user.uid,
-          username: username,
-          displayName: displayName,
-        );
+          assignedStudents: const [],
+          refreshTime: '19:00',
+          timeZoneName: 'Asia/Karachi',
+        ));
       }
       // Riverpod's stream listener in the router gate will automatically
       // detect this new user record and route them to their homepage.

@@ -1,14 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../user/user_service.dart';
 
 class AuthService {
   final _auth = FirebaseAuth.instance;
 
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
+  Stream<User?> get idTokenChanges => _auth.idTokenChanges();
 
   Future<void> signOut() => _auth.signOut();
 
@@ -29,6 +27,21 @@ class AuthService {
 
     if (user == null) {
       throw Exception('Authentication succeeded but no user was returned.');
+    }
+
+    return user;
+  }
+
+  Future<User> signInWithMock(String jsonTokenString) async {
+    final credential = GoogleAuthProvider.credential(
+      idToken: jsonTokenString,
+      accessToken: 'mock_token',
+    );
+    final userCred = await _auth.signInWithCredential(credential);
+    final user = userCred.user;
+
+    if (user == null) {
+      throw Exception('Mock authentication succeeded but no user was returned.');
     }
 
     return user;

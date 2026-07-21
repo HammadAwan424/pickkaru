@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../user/user_service.dart';
+import '../user/user.dart';
 
 class UsernameSelectionPage extends StatefulWidget {
   const UsernameSelectionPage({super.key});
@@ -20,8 +21,12 @@ class _UsernameSelectionPageState extends State<UsernameSelectionPage> {
     super.initState();
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      _usernameCtrl.text = user.email?.split('@').first ?? '';
-      _displayNameCtrl.text = user.displayName ?? '';
+      if (user.displayName != null && user.displayName!.isNotEmpty) {
+        _displayNameCtrl.text = user.displayName!;
+      }
+      if (user.email != null) {
+        _usernameCtrl.text = user.email!.split('@').first;
+      }
     }
   }
 
@@ -50,11 +55,11 @@ class _UsernameSelectionPageState extends State<UsernameSelectionPage> {
     });
 
     try {
-      await UserService().createInitialProfile(
+      await UserService().createInitialProfile(PendingUserProfile(
         uid: user.uid,
         username: username.toLowerCase(),
         displayName: displayName,
-      );
+      ));
       // Profile created successfully, router will automatically redirect
     } catch (e) {
       setState(() {
