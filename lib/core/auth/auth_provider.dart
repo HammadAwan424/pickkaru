@@ -16,7 +16,7 @@ final authStateProvider = StreamProvider<AuthTokenData?>((ref) {
 });
 
 // combines auth uid with Firestore user doc
-final currentUserProvider = StreamProvider<UserProfile?>((ref) {
+final currentUserProvider = StreamProvider<BaseUserModel?>((ref) {
   final authAsync = ref.watch(authStateProvider);
 
   return authAsync.when(
@@ -24,7 +24,8 @@ final currentUserProvider = StreamProvider<UserProfile?>((ref) {
     error: (_, __) => Stream.value(null),
     data: (authData) {
       if (authData == null) return Stream.value(null);
-      return ref.watch(userServiceProvider).watchLocalUser(authData.user.uid);
+      final claimRole = authData.claims['role'] as String?;
+      return ref.watch(userServiceProvider).watchLocalUser(authData.user.uid, claimRole: claimRole);
     },
   );
 });
@@ -49,7 +50,7 @@ final requireUserProvider = Provider<UserModel>((ref) {
     throw StateError('requireUserProvider accessed but user document is null.');
   }
   if (userDoc is! UserModel) {
-    throw StateError('requireUserProvider accessed but user is still a PendingUserProfile.');
+    throw StateError('requireUserProvider accessed but user is still a PendingUserModel.');
   }
   return userDoc;
 });

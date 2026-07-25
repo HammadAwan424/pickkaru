@@ -51,14 +51,6 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ── rosters/{driverId} ──────────────────────────────────────
-    // FIXED: Added the missing rosters collection
-    match /rosters/{driverId} {
-      allow read: if isAuth() && (request.auth.uid == driverId || isAssignedStudent(driverId));
-      // Allows drivers to update, and assigned students to add their initial defaults during the assignment flow.
-      allow create, update: if request.auth.uid == driverId || isAssignedStudent(driverId);
-      allow delete: if false;
-    }
 
     // ── students/{studentId} ────────────────────────────────────
     match /students/{studentId} {

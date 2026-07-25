@@ -60,6 +60,42 @@ class UserModel extends BaseUserModel {
     required super.username,
   });
 }
+
+### `UserNotFoundException`
+Thrown by `watchLocalUser` when a Firebase Auth user signs in successfully but their Firestore `users/{userId}` document does not exist.
+
+```dart
+class UserNotFoundException implements Exception {
+  final String uid;
+  final String code; // 'user-not-found'
+  final String message;
+
+  const UserNotFoundException(
+    this.uid, {
+    this.code = 'user-not-found',
+    this.message = 'User document does not exist in Firestore.',
+  });
+}
+```
+
+### `UsernameTakenException`
+Thrown by `createInitialProfile` when attempting to register a handle that is already claimed in the `usernames/{usernameId}` collection.
+
+```dart
+class UsernameTakenException implements Exception {
+  final String username;
+  final String code; // 'username-taken'
+  final String message;
+
+  const UsernameTakenException(
+    this.username, {
+    this.code = 'username-taken',
+    this.message = 'The username is already taken.',
+  });
+}
+```
+
+
 ```
 
 ---

@@ -1,37 +1,38 @@
 import '../enums.dart';
 
-sealed class UserProfile {
+sealed class BaseUserModel {
   final String uid;
   final String displayName;
   final String username;
 
-  const UserProfile({
+  const BaseUserModel({
     required this.uid,
     required this.displayName,
     required this.username,
   });
 
-  factory UserProfile.fromMap(String uid, Map<String, dynamic> map) {
-    if (map.containsKey('role') && map['role'] != null) {
+  factory BaseUserModel.fromMap(String uid, Map<String, dynamic> map, {String? claimRole}) {
+    final roleStr = claimRole ?? map['role'] as String?;
+    if (roleStr != null && roleStr.isNotEmpty) {
       return UserModel(
         uid: uid,
-        role: roles.values.byName(map['role'] as String),
-        displayName: map['displayName'] as String? ?? '',
-        username: map['username'] as String? ?? '',
+        role: roles.values.byName(roleStr),
+        displayName: map['displayName'] as String,
+        username: map['username'] as String,
       );
     }
-    return PendingUserProfile(
+    return PendingUserModel(
       uid: uid,
-      displayName: map['displayName'] as String? ?? '',
-      username: map['username'] as String? ?? '',
+      displayName: map['displayName'] as String,
+      username: map['username'] as String,
     );
   }
 
   Map<String, dynamic> toMap();
 }
 
-class PendingUserProfile extends UserProfile {
-  const PendingUserProfile({
+class PendingUserModel extends BaseUserModel {
+  const PendingUserModel({
     required super.uid,
     required super.displayName,
     required super.username,
@@ -46,7 +47,7 @@ class PendingUserProfile extends UserProfile {
   }
 }
 
-class UserModel extends UserProfile {
+class UserModel extends BaseUserModel {
   final roles role;
 
   const UserModel({

@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../Driver.dart';
 import '../../../core/enums.dart';
-import '../../../shared/roster/Roster.dart';
+
 // driver_service.dart — Firestore driver doc concerns
 class DriverService {
   final _db = FirebaseFirestore.instance;
@@ -23,9 +23,6 @@ class DriverService {
 
     final driversRef = _db.collection('drivers').doc(driver.uid);
     batch.set(driversRef, driver.toMap());
-
-    final rosterRef = _db.collection('rosters').doc(driver.uid);
-    batch.set(rosterRef, Roster.skeleton(driver.uid).toMap());
 
     await batch.commit();
   }

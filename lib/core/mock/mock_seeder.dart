@@ -77,11 +77,11 @@ Future<void> seedMockData(ProviderContainer container, String host) async {
     final uid = user.uid;
     actualFirstDriverUid ??= uid;
 
-    await userService.createInitialProfile(PendingUserProfile(
-      uid: uid,
-      username: username,
-      displayName: displayName,
-    ));
+      await userService.createInitialProfile(PendingUserModel(
+        uid: uid,
+        username: username,
+        displayName: displayName,
+      ));
     await driverService.createDriverAccount(DriverModel(
       uid: uid,
       assignedStudents: const [],
@@ -141,7 +141,7 @@ Future<void> seedMockData(ProviderContainer container, String host) async {
       final user = await authService.signInWithMock(mockStudent['token']!);
       final studentId = user.uid;
 
-      await userService.createInitialProfile(PendingUserProfile(
+      await userService.createInitialProfile(PendingUserModel(
         uid: studentId,
         username: username,
         displayName: displayName,

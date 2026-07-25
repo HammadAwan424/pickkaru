@@ -31,19 +31,10 @@ class StudentService {
     required String uid,
     required String newDisplayName,
   }) async {
-    final batch = _db.batch();
-
     final usersRef = _db.collection('users').doc(uid);
-    batch.update(usersRef, {'displayName': newDisplayName});
-
-    final rosterRef = _db.collection('rosters').doc(assignedDriverId);
-    batch.update(
-      rosterRef,
-      {'students.$uid.displayName': newDisplayName},
-    );
-
-    await batch.commit();
+    await usersRef.update({'displayName': newDisplayName});
   }
+
   Future<void> assignDriverToStudent({
     required String studentUid,
     required String driverId,
@@ -63,12 +54,6 @@ class StudentService {
     batch.update(driverRef, {
       'assignedStudents': FieldValue.arrayUnion([studentUid]),
     });
-
-    // TODO: The assignment should also add the student to the driver's trip configs.
-    // This is typically handled by a backend trigger (Supabase/Firebase Admin) when
-    // a student joins a driver's roster.
-    // The client could do it by querying all trips and updating config docs,
-    // but the student might not have write access to the driver's trips collection.
 
     await batch.commit();
   }
