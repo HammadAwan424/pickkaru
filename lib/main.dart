@@ -1,24 +1,21 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pickkaru/root_router.dart';
-import 'firebase_options.dart';
-import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
-import 'core/mock/mock_user_overlay.dart';
-
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+
+import 'firebase_options.dart';
+import 'root_router.dart';
 import 'core/mock/mock_seeder.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-// Pass your access token to MapboxOptions so you can load a map
-  String ACCESS_TOKEN = const String.fromEnvironment("ACCESS_TOKEN");
-  print("ACCESS TOKEN: $ACCESS_TOKEN");
-  MapboxOptions.setAccessToken(ACCESS_TOKEN);
+  String accessToken = const String.fromEnvironment("ACCESS_TOKEN");
+  MapboxOptions.setAccessToken(accessToken);
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   
@@ -51,22 +48,7 @@ class MyApp extends ConsumerWidget {
     return MaterialApp(
       title: 'Pickkaru',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: RootRouter(),
-      builder: (context, child) {
-        const String appEnv = String.fromEnvironment('APP_ENV', defaultValue: 'dev');
-        if (appEnv == 'production') return child!;
-        
-        return Stack(
-          children: [
-            child!,
-            const Positioned(
-              bottom: 20,
-              left: 20,
-              child: MockUserOverlay(),
-            ),
-          ],
-        );
-      },
+      home: const RootRouter(),
     );
   }
 }
